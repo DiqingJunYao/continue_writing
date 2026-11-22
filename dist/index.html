@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#183d35" />
+    <meta
+      name="description"
+      content="Branchline is a collaborative storytelling community where every chapter can grow into many possible futures."
+    />
+    <title>Branchline — Every story can become many</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to the story</a>
+
+    <div id="app-shell">
+      <header class="site-header" id="site-header"></header>
+      <main id="main-content" tabindex="-1"></main>
+      <footer class="site-footer" id="site-footer"></footer>
+    </div>
+
+    <dialog class="app-dialog" id="app-dialog" aria-labelledby="dialog-title"></dialog>
+    <dialog class="comments-drawer" id="comments-dialog" aria-labelledby="comments-title"></dialog>
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
