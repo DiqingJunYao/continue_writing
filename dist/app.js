@@ -4,7 +4,7 @@
   const STORAGE_KEY = "branchline-demo-data-v1";
   const SESSION_KEY = "branchline-demo-session-v1";
   const PATH_KEY = "branchline-preferred-branches-v1";
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
 
   const initialData = {
     schemaVersion: SCHEMA_VERSION,
@@ -48,7 +48,7 @@
         createdAt: "31 min ago", updatedAt: "31 min ago", likes: 187, likedBy: [], views: 896
       },
       {
-        id: "s1c", parentId: "s1", rootId: "s1", authorId: "u6", status: "reported", reportCount: 4, reportedBy: ["u1", "u2", "u3", "u4"],
+        id: "s1c", parentId: "s1", rootId: "s1", authorId: "u6", status: "reported", deletionSource: "moderation", reportCount: 4, reportedBy: ["u1", "u2", "u3", "u4"],
         title: "What the Tide Returned", deck: "The sea gives back one thing it should have kept.", genre: "Speculative",
         body: "The tide withdrew so quickly that fish hung glittering in the mud. In the sudden silence, Mara heard footsteps crossing the exposed seabed.\n\nHer father came out of the fog wearing the coat he had drowned in. He had not aged a day. In one hand he held the lighthouse key; in the other, a fistful of wet stars.\n\n‘Don't let them relight it,’ he said, and looked over his shoulder at the approaching beam.",
         createdAt: "22 min ago", updatedAt: "10 min ago", likes: 94, likedBy: [], views: 511
@@ -90,7 +90,7 @@
         createdAt: "Today", updatedAt: "Today", likes: 0, likedBy: [], views: 0
       },
       {
-        id: "s2a1", parentId: "s2a", rootId: "s2", authorId: "u1", status: "deleted", reportCount: 0, reportedBy: [],
+        id: "s2a1", parentId: "s2a", rootId: "s2", authorId: "u1", status: "deleted", deletionSource: "author", reportCount: 0, reportedBy: [],
         title: "The Blue Block City", deck: "A deleted chapter with a living continuation.", genre: "Magical realism",
         body: "Celia knelt beside the city and recognized its streets. Her brother had built the neighborhood exactly as it stood today, down to the burned-out bakery that would not close for another decade.",
         createdAt: "Yesterday", updatedAt: "Today", likes: 23, likedBy: [], views: 121
@@ -118,13 +118,14 @@
       { id: "c7", storyId: "s3a", parentCommentId: null, replyToCommentId: null, authorId: "u3", status: "active", text: "Seven endings! This is exactly the kind of branch I hoped someone would find.", createdAt: "1 day ago", likes: 23, likedBy: [] }
     ],
     notifications: [
-      { id: "n1", type: "continuation", actorId: "u3", storyId: "s1a1", targetStoryId: "s1a", read: false, createdAt: "12 min ago", quote: "The Name in the Static" },
-      { id: "n2", type: "reply", actorId: "u2", storyId: "s1", targetStoryId: "s1", read: false, createdAt: "21 min ago", quote: "your blue-flame detail was perfect" },
-      { id: "n3", type: "like", actorId: "u4", storyId: "s3a", targetStoryId: "s3a", read: false, createdAt: "3 hours ago", quote: "The Passenger List" },
-      { id: "n4", type: "comment", actorId: "u3", storyId: "s3a", targetStoryId: "s3a", read: true, createdAt: "1 day ago", quote: "Seven endings!" },
-      { id: "n5", type: "continuation", actorId: "u4", storyId: "s2a1a", targetStoryId: "s2a1", read: true, createdAt: "4 hours ago", quote: "A Map Made of Memory" }
+      { id: "n1", type: "continuation", actorId: "u3", recipientId: "u1", storyId: "s1a1", targetStoryId: "s1a", read: false, createdAt: "12 min ago", quote: "The Name in the Static" },
+      { id: "n2", type: "reply", actorId: "u2", recipientId: "u1", storyId: "s1", targetStoryId: "s1", read: false, createdAt: "21 min ago", quote: "your blue-flame detail was perfect" },
+      { id: "n3", type: "like", actorId: "u4", recipientId: "u1", storyId: "s3a", targetStoryId: "s3a", read: false, createdAt: "3 hours ago", quote: "The Passenger List" },
+      { id: "n4", type: "comment", actorId: "u3", recipientId: "u1", storyId: "s3a", targetStoryId: "s3a", read: true, createdAt: "1 day ago", quote: "Seven endings!" },
+      { id: "n5", type: "continuation", actorId: "u4", recipientId: "u1", storyId: "s2a1a", targetStoryId: "s2a1", read: true, createdAt: "4 hours ago", quote: "A Map Made of Memory" }
     ],
-    auditLog: []
+    auditLog: [],
+    demoAuthProviders: {}
   };
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -132,7 +133,32 @@
   function loadData() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved && saved.schemaVersion === SCHEMA_VERSION && Array.isArray(saved.stories)) return saved;
+      const valid = saved
+        && saved.schemaVersion === SCHEMA_VERSION
+        && Array.isArray(saved.users)
+        && Array.isArray(saved.stories)
+        && Array.isArray(saved.comments)
+        && Array.isArray(saved.notifications);
+      if (valid) {
+        saved.auditLog = Array.isArray(saved.auditLog) ? saved.auditLog : [];
+        saved.demoAuthProviders = saved.demoAuthProviders && typeof saved.demoAuthProviders === "object"
+          ? saved.demoAuthProviders
+          : {};
+        saved.stories.forEach((story) => {
+          story.reportedBy = Array.isArray(story.reportedBy) ? story.reportedBy : [];
+          story.likedBy = Array.isArray(story.likedBy) ? story.likedBy : [];
+          if (!story.deletionSource && story.status === "reported") story.deletionSource = "moderation";
+          if (!story.deletionSource && story.status === "deleted") story.deletionSource = "author";
+        });
+        saved.comments.forEach((comment) => {
+          comment.likedBy = Array.isArray(comment.likedBy) ? comment.likedBy : [];
+          if (!comment.deletionSource && comment.status === "deleted") comment.deletionSource = "story";
+        });
+        saved.notifications.forEach((notification) => {
+          if (!notification.recipientId) notification.recipientId = "u1";
+        });
+        return saved;
+      }
     } catch (error) {
       console.warn("Could not load saved Branchline data", error);
     }
@@ -203,6 +229,44 @@
       .join("");
   }
 
+  function createId(prefix) {
+    const randomPart = globalThis.crypto?.randomUUID?.()
+      || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `${prefix}-${randomPart}`;
+  }
+
+  function recordAudit(action, story, previousStatus = null) {
+    data.auditLog.push({
+      id: createId("audit"),
+      action,
+      actorId: currentUser()?.id || null,
+      storyId: story?.id || null,
+      previousStatus,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  function addNotification({ type, actorId, recipientId, storyId, targetStoryId = storyId, quote = "" }) {
+    if (!actorId || !recipientId || actorId === recipientId) return;
+    if (!data.users.some((user) => user.id === recipientId)) return;
+    data.notifications.unshift({
+      id: createId("notification"),
+      type,
+      actorId,
+      recipientId,
+      storyId,
+      targetStoryId,
+      read: false,
+      createdAt: "Just now",
+      quote
+    });
+  }
+
+  function notificationsForUser(userId = currentUser()?.id) {
+    if (!userId) return [];
+    return data.notifications.filter((notification) => notification.recipientId === userId);
+  }
+
   function icon(name, className = "") {
     const paths = {
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -227,7 +291,6 @@
       check: '<path d="m20 6-11 11-5-5"/>',
       trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5"/>',
       edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
-      eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
       branch: '<path d="M6 3v12a4 4 0 0 0 4 4h8"/><path d="m14 15 4 4-4 4"/><circle cx="6" cy="3" r="2"/><path d="M6 9h7a4 4 0 0 0 4-4V3"/><circle cx="17" cy="3" r="2"/>',
       book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z"/><path d="M4 6.5v13A2.5 2.5 0 0 0 6.5 22H20"/>',
@@ -254,7 +317,7 @@
   }
 
   function currentUser() {
-    return session.userId ? userById(session.userId) : null;
+    return session.userId ? data.users.find((user) => user.id === session.userId) || null : null;
   }
 
   function avatar(user, size = "") {
@@ -339,7 +402,7 @@
 
   function renderHeader(route) {
     const user = currentUser();
-    const unreadCount = data.notifications.filter((item) => !item.read).length;
+    const unreadCount = user ? notificationsForUser(user.id).filter((item) => !item.read).length : 0;
     const navIsActive = (name) => route.name === name ? " active" : "";
     header.innerHTML = `
       <div class="header-inner">
@@ -399,6 +462,7 @@
   function closeAppDialog() {
     if (appDialog.open) appDialog.close();
     appDialog.classList.remove("wide-dialog");
+    appDialog.replaceChildren();
     if (!commentsDialog.open) document.body.classList.remove("dialog-open");
   }
 
@@ -455,13 +519,29 @@
   }
 
   function signIn(provider) {
-    session = { userId: "u1", provider };
+    let demoUser = data.users.find((user) => user.id === data.demoAuthProviders[provider]);
+    if (!demoUser) {
+      const firstName = provider === "facebook" ? "Facebook" : "Google";
+      demoUser = {
+        id: createId("user"),
+        name: `${firstName} member`,
+        handle: `@${provider}-member`,
+        initials: provider === "facebook" ? "FB" : "GG",
+        tone: provider === "facebook" ? "blue" : "rose",
+        role: "user",
+        bio: "A new Branchline member."
+      };
+      data.users.push(demoUser);
+      data.demoAuthProviders[provider] = demoUser.id;
+    }
+    saveData();
+    session = { userId: demoUser.id, provider };
     saveSession();
     closeAppDialog();
     const action = pendingAuthAction;
     pendingAuthAction = null;
     renderApp();
-    showToast(`Signed in with ${provider === "facebook" ? "Facebook" : "Google"}. Welcome, Maya!`);
+    showToast(`Signed in with ${provider === "facebook" ? "Facebook" : "Google"}. Welcome, ${demoUser.name.split(" ")[0]}!`);
     if (action) window.setTimeout(action, 80);
   }
 
@@ -489,13 +569,13 @@
         <div class="user-menu">
           <div class="user-menu-header">
             ${avatar(user)}
-            <div><strong>${escapeHTML(user.name)}</strong><span>${escapeHTML(user.handle)} · Administrator demo</span></div>
+            <div><strong>${escapeHTML(user.name)}</strong><span>${escapeHTML(user.handle)} · ${user.role === "admin" ? "Administrator demo" : "Member demo"}</span></div>
           </div>
           <div class="user-menu-links">
             <a class="user-menu-link" href="#profile" data-action="close-dialog">${icon("user")} My profile</a>
             <a class="user-menu-link" href="#inbox" data-action="close-dialog">${icon("bell")} Inbox</a>
-            <a class="user-menu-link" href="#admin" data-action="close-dialog">${icon("shield")} Moderation</a>
-            <button class="user-menu-link" type="button" data-action="reset-demo">${icon("refresh")} Reset demo data</button>
+            ${user.role === "admin" ? `<a class="user-menu-link" href="#admin" data-action="close-dialog">${icon("shield")} Moderation</a>` : ""}
+            ${user.role === "admin" ? `<button class="user-menu-link" type="button" data-action="reset-demo">${icon("refresh")} Reset demo data</button>` : ""}
             <button class="user-menu-link danger" type="button" data-action="sign-out">${icon("logout")} Sign out</button>
           </div>
         </div>
@@ -580,9 +660,9 @@
       return `
         <div class="rail-card rail-start-card">
           <div class="branch-art">${icon("branch")}</div>
-          <h3>This branch is waiting.</h3>
-          <p>Be the first to decide what happens after this chapter.</p>
-          <button class="button" type="button" data-action="continue-story" data-story-id="${story.id}">Continue it</button>
+          <h3>${story.status === "active" ? "This branch is waiting." : "No later branches yet."}</h3>
+          <p>${story.status === "active" ? "Be the first to decide what happens after this chapter." : "This unavailable chapter remains connected, but it cannot receive new continuations."}</p>
+          ${story.status === "active" ? `<button class="button" type="button" data-action="continue-story" data-story-id="${story.id}">Continue it</button>` : ""}
         </div>
       `;
     }
@@ -601,19 +681,21 @@
                 <span class="mini-branch-dot"></span>
                 <span class="mini-branch-copy">
                   <strong>${escapeHTML(child.status === "active" ? child.title : child.status === "reported" ? "Reported chapter" : "Deleted chapter")}</strong>
-                  <span>${escapeHTML(userById(child.authorId).name)} · ${child.likes} likes</span>
+                  <span>${child.status === "active" ? `${escapeHTML(userById(child.authorId).name)} · ${child.likes} likes` : "Content unavailable · branch preserved"}</span>
                 </span>
               </button>
             </li>
           `).join("")}
         </ul>
       </div>
-      <div class="rail-card rail-start-card">
-        <div class="branch-art">${icon("pen")}</div>
-        <h3>Take it somewhere new.</h3>
-        <p>Your continuation becomes another branch at the next level.</p>
-        <button class="button" type="button" data-action="continue-story" data-story-id="${story.id}">Write a version</button>
-      </div>
+      ${story.status === "active" ? `
+        <div class="rail-card rail-start-card">
+          <div class="branch-art">${icon("pen")}</div>
+          <h3>Take it somewhere new.</h3>
+          <p>Your continuation becomes another branch at the next level.</p>
+          <button class="button" type="button" data-action="continue-story" data-story-id="${story.id}">Write a version</button>
+        </div>
+      ` : ""}
     `;
   }
 
@@ -624,7 +706,7 @@
       <div class="tombstone-content">
         <div class="tombstone-inner">
           <div class="tombstone-icon ${reported ? "reported" : ""}">${icon(reported ? "flag" : "trash")}</div>
-          <h2>${reported ? "This chapter is under review" : "This chapter was deleted"}</h2>
+          <h2 id="tombstone-title">${reported ? "This chapter is under review" : "This chapter was deleted"}</h2>
           <p>${reported ? "The chapter is hidden after community reports and is awaiting an administrator decision." : "The author removed this chapter. Its place in the story is preserved so later continuations stay connected."}</p>
           ${descendants ? `<span class="continuation-note">${icon("branch")} ${descendants} ${descendants === 1 ? "later chapter remains" : "later chapters remain"}</span>` : ""}
         </div>
@@ -643,16 +725,17 @@
     const isActive = story.status === "active";
     const versionLabel = level === 0 ? `Root ${siblingIndex + 1} of ${siblings.length}` : `Version ${siblingIndex + 1} of ${siblings.length}`;
     const parent = story.parentId ? storyById(story.parentId) : null;
+    const parentLabel = parent?.status === "active" ? parent.title : "Unavailable chapter";
 
     return `
-      <article class="story-card" id="story-card" aria-labelledby="story-title" tabindex="0">
+      <article class="story-card" id="story-card" aria-labelledby="${isActive ? "story-title" : "tombstone-title"}" tabindex="0">
         <div class="story-card-header">
           <div class="version-nav">
             <button class="version-button" type="button" data-story-nav="left" aria-label="Previous version" ${siblingIndex <= 0 ? "disabled" : ""}>${icon("chevronLeft")}</button>
           </div>
           <div class="version-meta">
             <p class="version-eyebrow">Level ${level}</p>
-            <p class="version-text">${escapeHTML(versionLabel)}${parent ? ` · after “${escapeHTML(parent.title)}”` : ""}</p>
+            <p class="version-text">${escapeHTML(versionLabel)}${parent ? ` · after “${escapeHTML(parentLabel)}”` : ""}</p>
           </div>
           <div class="version-nav end">
             <button class="version-button" type="button" data-story-nav="right" aria-label="Next version" ${siblingIndex >= siblings.length - 1 ? "disabled" : ""}>${icon("chevronRight")}</button>
@@ -666,30 +749,30 @@
                 ${avatar(author)}
                 <div class="author-copy"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(story.createdAt)} · ${escapeHTML(story.genre)}</span></div>
               </div>
-              <button class="report-button" type="button" data-action="report-story" data-story-id="${story.id}">${icon("flag")}<span>Report</span></button>
+              <button class="report-button" type="button" data-action="report-story" data-story-id="${story.id}" aria-label="Report this chapter">${icon("flag")}<span>Report</span></button>
             </div>
             <h2 class="story-title" id="story-title">${escapeHTML(story.title)}</h2>
             ${story.deck ? `<p class="story-deck">${escapeHTML(story.deck)}</p>` : ""}
             <div class="story-body">${renderParagraphs(story.body)}</div>
           </div>
-          <div class="story-card-footer" aria-label="Story actions">
-            <button class="action-button ${isLiked ? "active" : ""}" type="button" data-action="like-story" data-story-id="${story.id}" aria-pressed="${isLiked}">
+          <div class="story-card-footer" role="group" aria-label="Story actions">
+            <button class="action-button ${isLiked ? "active" : ""}" type="button" data-action="like-story" data-story-id="${story.id}" aria-label="${isLiked ? "Unlike" : "Like"} this chapter, ${story.likes} likes" aria-pressed="${isLiked}">
               ${icon("heart")}<span class="action-label">Like</span><span>${story.likes}</span>
             </button>
-            <button class="action-button" type="button" data-action="open-comments" data-story-id="${story.id}">
+            <button class="action-button" type="button" data-action="open-comments" data-story-id="${story.id}" aria-label="Open comments, ${commentCount(story.id)} comments">
               ${icon("message")}<span class="action-label">Comments</span><span>${commentCount(story.id)}</span>
             </button>
-            <button class="action-button" type="button" data-action="share-story" data-story-id="${story.id}">
+            <button class="action-button" type="button" data-action="share-story" data-story-id="${story.id}" aria-label="Share this chapter">
               ${icon("share")}<span class="action-label">Share</span>
             </button>
-            <button class="action-button continue-action" type="button" data-action="continue-story" data-story-id="${story.id}">
+            <button class="action-button continue-action" type="button" data-action="continue-story" data-story-id="${story.id}" aria-label="Continue writing after this chapter">
               ${icon("pen")}<span class="action-label">Continue</span>
             </button>
           </div>
         ` : `
           ${renderTombstone(story)}
-          <div class="story-card-footer" aria-label="Story actions">
-            <button class="action-button" type="button" data-action="share-story" data-story-id="${story.id}">${icon("share")}<span class="action-label">Share branch</span></button>
+          <div class="story-card-footer" role="group" aria-label="Story actions">
+            <button class="action-button" type="button" data-action="share-story" data-story-id="${story.id}" aria-label="Share this branch">${icon("share")}<span class="action-label">Share branch</span></button>
             ${children.length ? `<span class="action-button" aria-hidden="true">${icon("branch")}<span class="action-label">Path preserved</span></span>` : ""}
           </div>
         `}
@@ -701,17 +784,18 @@
     const roots = data.stories.filter((story) => story.parentId === null && story.status !== "draft");
     return roots.map((story) => {
       const author = userById(story.authorId);
-      const bodyPreview = story.status === "active" ? story.body.split(/\n\s*\n/)[0] : "This root chapter is currently unavailable, but its story tree remains accessible.";
+      const isActive = story.status === "active";
+      const bodyPreview = isActive ? story.body.split(/\n\s*\n/)[0] : "This root chapter is currently unavailable, but its story tree remains accessible.";
       return `
-        <button class="root-card" type="button" data-story-id="${story.id}">
-          <span class="root-card-top"><span>${escapeHTML(story.genre)}</span><span>${story.views.toLocaleString()} reads</span></span>
-          <h3>${escapeHTML(story.status === "active" ? story.title : story.status === "reported" ? "Reported story" : "Deleted story")}</h3>
+        <article class="root-card" tabindex="0" role="link" data-story-id="${story.id}" aria-label="Read ${escapeHTML(isActive ? story.title : "this unavailable story")}">
+          <span class="root-card-top"><span>${isActive ? escapeHTML(story.genre) : "Unavailable"}</span><span>${isActive ? `${story.views.toLocaleString()} reads` : "Path preserved"}</span></span>
+          <h3>${escapeHTML(isActive ? story.title : story.status === "reported" ? "Reported story" : "Deleted story")}</h3>
           <p>${escapeHTML(bodyPreview)}</p>
           <span class="root-card-footer">
-            <span class="root-author">${avatar(author, "sm")} ${escapeHTML(author.name)}</span>
+            <span class="root-author">${isActive ? `${avatar(author, "sm")} ${escapeHTML(author.name)}` : `${icon("branch")} Content unavailable`}</span>
             <span class="branch-stat">${descendantCount(story.id)} branches</span>
           </span>
-        </button>
+        </article>
       `;
     }).join("");
   }
@@ -720,6 +804,22 @@
     const story = storyById(requestedStoryId) || storyById("s1") || visibleStories()[0];
     if (!story) {
       main.innerHTML = `<div class="empty-state"><h2>No stories yet</h2><button class="button button-primary" data-action="start-story">Start the first one</button></div>`;
+      return;
+    }
+    if (story.status === "draft") {
+      const user = currentUser();
+      const isOwner = user?.id === story.authorId;
+      main.innerHTML = `
+        <section class="auth-wall">
+          <div class="auth-wall-card">
+            <div class="auth-mark">${icon("edit")}</div>
+            <h1>${isOwner ? "This chapter is still a draft." : "This chapter is not published."}</h1>
+            <p>${isOwner ? "Continue editing it from your private drafts. It has not been added to the public story tree." : "Only the author can open this draft."}</p>
+            ${isOwner ? `<a class="button button-primary" href="#edit/${story.id}">Edit draft</a>` : ""}
+            <br><br><a class="back-link" href="#story/${story.parentId || "s1"}">${icon("chevronLeft")} Return to published stories</a>
+          </div>
+        </section>
+      `;
       return;
     }
     const parent = story.parentId ? storyById(story.parentId) : null;
@@ -762,13 +862,17 @@
                     <span>${children.length === 1 ? `Continue to ${escapeHTML(selectedChild?.status === "active" ? selectedChild.title : "the next chapter")}` : `Choose from ${children.length} continuations`}</span>
                     <span class="branch-count">${children.length}</span>
                   </button>
-                ` : `
+                ` : story.status === "active" ? `
                   <button class="vertical-nav-button" type="button" data-action="continue-story" data-story-id="${story.id}">
                     ${icon("pen")} End of this branch · write what happens next
                   </button>
+                ` : `
+                  <div class="vertical-nav-button disabled" aria-label="No later chapter is connected">
+                    ${icon("branch")} No later chapter is connected
+                  </div>
                 `}
               </div>
-              <p class="stage-caption">Hover over the chapter and scroll vertically, use the controls, or press the arrow keys.</p>
+              <p class="stage-caption">Use the visible controls or arrow keys. Scroll navigation activates only when the full chapter fits on screen.</p>
             </div>
 
             <aside class="reader-rail right-rail" aria-label="Available continuations">
@@ -833,7 +937,7 @@
       const card = document.getElementById("story-card");
       if (card) card.classList.add("is-transitioning");
       window.setTimeout(() => routeTo(`story/${target.id}`), 110);
-    } else if (direction === "down") {
+    } else if (direction === "down" && story.status === "active") {
       requireAuth(() => routeTo(`write/continue/${story.id}`), "Sign in to continue this branch.");
     }
   }
@@ -841,10 +945,12 @@
   function bindReaderGestures() {
     const card = document.getElementById("story-card");
     if (!card) return;
+    const cardFitsViewport = () => card.scrollHeight <= Math.max(520, window.innerHeight - 120);
 
     card.addEventListener("wheel", (event) => {
       if (appDialog.open || commentsDialog.open || wheelLocked || Math.abs(event.deltaY) < 46) return;
       if (event.target.closest("button, input, textarea, select")) return;
+      if (!cardFitsViewport()) return;
       event.preventDefault();
       wheelLocked = true;
       navigateStory(event.deltaY > 0 ? "down" : "up");
@@ -864,7 +970,7 @@
       touchStart = null;
       if (Math.max(Math.abs(dx), Math.abs(dy)) < 72) return;
       if (Math.abs(dx) > Math.abs(dy)) navigateStory(dx > 0 ? "left" : "right");
-      else navigateStory(dy > 0 ? "up" : "down");
+      else if (cardFitsViewport()) navigateStory(dy > 0 ? "up" : "down");
     }, { passive: true });
   }
 
@@ -875,7 +981,7 @@
     const selected = preferredChildByParent[storyId] || children[0].id;
     openDialog({
       title: "Choose the next branch",
-      subtitle: `All of these continue “${story.title}.”`,
+      subtitle: story.status === "active" ? `All of these continue “${story.title}.”` : "The previous chapter is unavailable, but its later branches remain connected.",
       body: `<div class="branch-picker-list">
         ${children.map((child, index) => {
           const author = userById(child.authorId);
@@ -884,7 +990,7 @@
               <span class="branch-number">${index + 1}</span>
               <span class="branch-option-copy">
                 <strong>${escapeHTML(child.status === "active" ? child.title : child.status === "reported" ? "Reported chapter" : "Deleted chapter")}</strong>
-                <span>by ${escapeHTML(author.name)} · ${child.likes} likes · ${commentCount(child.id)} comments</span>
+                <span>${child.status === "active" ? `by ${escapeHTML(author.name)} · ${child.likes} likes · ${commentCount(child.id)} comments` : "Content unavailable · branch preserved"}</span>
               </span>
               ${icon("chevronRight")}
             </button>
@@ -913,6 +1019,13 @@
     } else {
       story.likedBy.push(user.id);
       story.likes += 1;
+      addNotification({
+        type: "like",
+        actorId: user.id,
+        recipientId: story.authorId,
+        storyId: story.id,
+        quote: story.title
+      });
     }
     saveData();
     renderApp();
@@ -993,7 +1106,12 @@
     if (!story || !user || story.status !== "active" || story.reportedBy.includes(user.id)) return;
     story.reportedBy.push(user.id);
     story.reportCount += 1;
-    if (story.reportCount > 3) story.status = "reported";
+    if (story.reportCount > 3) {
+      const previousStatus = story.status;
+      story.status = "reported";
+      story.deletionSource = "moderation";
+      recordAudit("story_auto_hidden", story, previousStatus);
+    }
     story.updatedAt = "Just now";
     saveData();
     closeAppDialog();
@@ -1096,6 +1214,7 @@
 
   function closeComments() {
     if (commentsDialog.open) commentsDialog.close();
+    commentsDialog.replaceChildren();
     activeCommentsStoryId = null;
     replyTargetId = null;
     if (!appDialog.open) document.body.classList.remove("dialog-open");
@@ -1105,7 +1224,7 @@
     requireAuth(() => {
       const comment = data.comments.find((item) => item.id === commentId);
       const user = currentUser();
-      if (!comment || !user) return;
+      if (!comment || !user || comment.status !== "active") return;
       const index = comment.likedBy.indexOf(user.id);
       if (index >= 0) {
         comment.likedBy.splice(index, 1);
@@ -1113,6 +1232,13 @@
       } else {
         comment.likedBy.push(user.id);
         comment.likes += 1;
+        addNotification({
+          type: "comment_like",
+          actorId: user.id,
+          recipientId: comment.authorId,
+          storyId: comment.storyId,
+          quote: comment.text
+        });
       }
       saveData();
       refreshComments();
@@ -1133,9 +1259,10 @@
 
   function addComment(storyId, text) {
     const user = currentUser();
-    if (!user || !text.trim()) return;
+    const story = storyById(storyId);
+    if (!user || !story || story.status !== "active" || !text.trim()) return;
     data.comments.unshift({
-      id: `c${Date.now()}`,
+      id: createId("comment"),
       storyId,
       parentCommentId: null,
       replyToCommentId: null,
@@ -1146,6 +1273,13 @@
       likes: 0,
       likedBy: []
     });
+    addNotification({
+      type: "comment",
+      actorId: user.id,
+      recipientId: story.authorId,
+      storyId,
+      quote: text.trim()
+    });
     saveData();
     refreshComments();
     renderHeader(getRoute());
@@ -1155,11 +1289,14 @@
   function addReply(rootCommentId, replyToId, text) {
     const user = currentUser();
     const target = data.comments.find((item) => item.id === replyToId);
-    if (!user || !target || !text.trim()) return;
+    const story = target ? storyById(target.storyId) : null;
+    if (!user || !target || target.status !== "active" || story?.status !== "active" || !text.trim()) return;
+    const verifiedRootId = target.parentCommentId || target.id;
+    if (rootCommentId !== verifiedRootId) return;
     data.comments.push({
-      id: `c${Date.now()}`,
+      id: createId("comment"),
       storyId: target.storyId,
-      parentCommentId: rootCommentId,
+      parentCommentId: verifiedRootId,
       replyToCommentId: replyToId,
       authorId: user.id,
       status: "active",
@@ -1168,8 +1305,15 @@
       likes: 0,
       likedBy: []
     });
+    addNotification({
+      type: "reply",
+      actorId: user.id,
+      recipientId: target.authorId,
+      storyId: target.storyId,
+      quote: text.trim()
+    });
     replyTargetId = null;
-    expandedReplyThreads.add(rootCommentId);
+    expandedReplyThreads.add(verifiedRootId);
     saveData();
     refreshComments();
     showToast("Reply posted.");
@@ -1197,6 +1341,11 @@
       return;
     }
 
+    if (editing && !["active", "draft"].includes(sourceStory.status)) {
+      main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><div class="auth-mark">${icon("shield")}</div><h1>This chapter can't be edited.</h1><p>Deleted and reported chapters must be reviewed by an administrator. Editing cannot restore them.</p><a class="button button-primary" href="#story/${sourceStory.id}">Return to the branch</a></div></div>`;
+      return;
+    }
+
     if (continuing && sourceStory.status !== "active") {
       main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><div class="auth-mark">${icon("branch")}</div><h1>This chapter can't be continued.</h1><p>Its path is preserved for existing descendants, but new continuations are paused while it is unavailable.</p><a class="button button-primary" href="#story/${sourceStory.id}">Return to the branch</a></div></div>`;
       return;
@@ -1207,12 +1356,15 @@
     const modeTitle = editing ? "Edit chapter" : continuing ? "Continue this story" : "Start a new story";
     const modeSubtitle = editing ? `Updating “${sourceStory.title}”` : continuing ? `Writing after “${sourceStory.title}”` : "Plant the first chapter of a new story tree";
     const isRootMode = !parentStory;
+    const backHref = editing && sourceStory.status === "draft"
+      ? "#profile"
+      : editing || continuing ? `#story/${sourceStory.id}` : "#story/s1";
 
     main.innerHTML = `
       <div class="writer-page">
         <div class="writer-topbar">
           <div class="writer-topbar-inner">
-            <a class="back-link" href="${editing || continuing ? `#story/${sourceStory.id}` : "#story/s1"}">${icon("chevronLeft")} Back</a>
+            <a class="back-link" href="${backHref}">${icon("chevronLeft")} Back</a>
             <div class="writer-heading"><h1>${escapeHTML(modeTitle)}</h1><p>${escapeHTML(modeSubtitle)}</p></div>
             <span class="save-state" id="save-state"><span class="save-state-dot"></span>${formStory ? `Last saved ${escapeHTML(formStory.updatedAt)}` : "Draft ready"}</span>
             <button class="button button-secondary button-small" type="button" data-action="preview-draft">${icon("eye")} Preview</button>
@@ -1223,11 +1375,21 @@
           ${parentStory ? `
             <aside class="reference-panel" aria-label="Previous chapter">
               <div class="panel-header"><div><h2>Previous chapter</h2><p>Read-only reference · scrolls independently</p></div><span class="level-tag">Level ${getLevel(parentStory)}</span></div>
-              <div class="reference-scroll">
-                <div class="author-line">${avatar(userById(parentStory.authorId), "sm")}<div class="author-copy"><strong>${escapeHTML(userById(parentStory.authorId).name)}</strong><span>${escapeHTML(parentStory.createdAt)}</span></div></div>
-                <h3>${escapeHTML(parentStory.title)}</h3>
-                <div class="reference-story-body">${renderParagraphs(parentStory.body)}</div>
-              </div>
+              ${parentStory.status === "active" ? `
+                <div class="reference-scroll">
+                  <div class="author-line">${avatar(userById(parentStory.authorId), "sm")}<div class="author-copy"><strong>${escapeHTML(userById(parentStory.authorId).name)}</strong><span>${escapeHTML(parentStory.createdAt)}</span></div></div>
+                  <h3>${escapeHTML(parentStory.title)}</h3>
+                  <div class="reference-story-body">${renderParagraphs(parentStory.body)}</div>
+                </div>
+              ` : `
+                <div class="tombstone-content">
+                  <div class="tombstone-inner">
+                    <div class="tombstone-icon ${parentStory.status === "reported" ? "reported" : ""}">${icon(parentStory.status === "reported" ? "flag" : "trash")}</div>
+                    <h3>Previous chapter unavailable</h3>
+                    <p>Its content is hidden, but your chapter remains connected to the story tree.</p>
+                  </div>
+                </div>
+              `}
             </aside>
           ` : ""}
 
@@ -1261,8 +1423,8 @@
               </div>
               <div class="editor-footer">
                 <span class="editor-note">${continuing ? `This becomes level ${getLevel(sourceStory) + 1}.` : editing ? "Your branch links stay unchanged." : "This becomes a new root story."}</span>
-                <button class="button button-secondary" type="button" data-action="save-draft">${icon("save")} Save draft</button>
-                <button class="button button-primary" type="submit">${editing ? "Save changes" : "Publish chapter"}</button>
+                ${!editing || sourceStory.status === "draft" ? `<button class="button button-secondary" type="button" data-action="save-draft">${icon("save")} Save draft</button>` : ""}
+                <button class="button button-primary" type="submit">${editing && sourceStory.status === "active" ? "Save changes" : "Publish chapter"}</button>
               </div>
             </form>
           </section>
@@ -1307,16 +1469,41 @@
 
     if (mode === "edit") {
       const story = storyById(sourceId);
-      if (!story || story.authorId !== user.id) return;
-      Object.assign(story, values, { status: asDraft ? "draft" : "active", updatedAt: "Just now" });
+      if (!story || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+      if (asDraft) {
+        if (story.status !== "draft") {
+          showToast("Published chapters stay live while editing. Use Save changes when you're ready.", "info");
+          return;
+        }
+        Object.assign(story, values, { status: "draft", updatedAt: "Just now" });
+        saveData();
+        showToast("Draft updated.");
+        routeTo("profile");
+        return;
+      }
+      const wasDraft = story.status === "draft";
+      Object.assign(story, values, { status: "active", updatedAt: "Just now" });
+      if (wasDraft && story.parentId) {
+        preferredChildByParent[story.parentId] = story.id;
+        savePreferredBranches();
+        const parent = storyById(story.parentId);
+        addNotification({
+          type: "continuation",
+          actorId: user.id,
+          recipientId: parent?.authorId,
+          storyId: story.id,
+          targetStoryId: parent?.id,
+          quote: story.title
+        });
+      }
       saveData();
-      showToast(asDraft ? "Draft saved." : "Changes published.");
+      showToast(wasDraft ? "Draft published." : "Changes published.");
       routeTo(`story/${story.id}`);
       return;
     }
 
     const parent = mode === "continue" ? storyById(sourceId) : null;
-    const id = `s${Date.now()}`;
+    const id = createId("story");
     const story = {
       id,
       parentId: parent?.id || null,
@@ -1333,8 +1520,18 @@
       views: 1
     };
     data.stories.push(story);
+    if (parent && !asDraft) {
+      addNotification({
+        type: "continuation",
+        actorId: user.id,
+        recipientId: parent.authorId,
+        storyId: story.id,
+        targetStoryId: parent.id,
+        quote: story.title
+      });
+    }
     saveData();
-    if (parent) {
+    if (parent && !asDraft) {
       preferredChildByParent[parent.id] = story.id;
       savePreferredBranches();
     }
@@ -1373,14 +1570,16 @@
       ${stories.map((story) => {
         const level = getLevel(story);
         const parent = story.parentId ? storyById(story.parentId) : null;
+        const parentLabel = parent?.status === "active" ? parent.title : "Unavailable chapter";
         const isOwner = story.authorId === user.id;
+        const showPrivateMetadata = story.status === "active" || story.status === "draft" || isOwner;
         return `
           <li class="story-list-card" data-status="${story.status}">
             <span class="story-list-accent"></span>
             <div class="story-list-main">
-              <div class="story-list-tags"><span class="status-badge ${story.status}">${formatStatus(story.status)}</span> <span class="level-tag">Level ${level}</span> <span class="genre-tag">${escapeHTML(story.genre)}</span></div>
-              <h3 style="margin:8px 0 0;font-family:var(--serif);font-size:1.25rem;letter-spacing:-.025em">${escapeHTML(story.title)}</h3>
-              <p>${parent ? `Continues “${escapeHTML(parent.title)}”` : "Root story"}</p>
+              <div class="story-list-tags"><span class="status-badge ${story.status}">${formatStatus(story.status)}</span> <span class="level-tag">Level ${level}</span> <span class="genre-tag">${showPrivateMetadata ? escapeHTML(story.genre) : "Unavailable"}</span></div>
+              <h3 style="margin:8px 0 0;font-family:var(--serif);font-size:1.25rem;letter-spacing:-.025em">${showPrivateMetadata ? escapeHTML(story.title) : story.status === "reported" ? "Reported chapter" : "Deleted chapter"}</h3>
+              <p>${parent ? `Continues “${escapeHTML(parentLabel)}”` : "Root story"}</p>
               <div class="story-list-meta">
                 <span>${icon("heart")} ${story.likes} likes</span>
                 <span>${icon("message")} ${commentCount(story.id)} comments</span>
@@ -1391,7 +1590,7 @@
             <div class="story-list-actions">
               ${story.status !== "draft" ? `<button class="button button-secondary button-small" type="button" data-story-id="${story.id}">${icon("eye")} View</button>` : ""}
               ${isOwner && (story.status === "active" || story.status === "draft") ? `<a class="button button-secondary button-small" href="#edit/${story.id}">${icon("edit")} Edit</a>` : ""}
-              ${isOwner && story.status !== "deleted" ? `<button class="icon-button" type="button" data-delete-story="${story.id}" aria-label="Delete ${escapeHTML(story.title)}">${icon("trash")}</button>` : ""}
+              ${isOwner && (story.status === "active" || story.status === "draft") ? `<button class="icon-button" type="button" data-delete-story="${story.id}" aria-label="Delete ${escapeHTML(story.title)}">${icon("trash")}</button>` : ""}
             </div>
           </li>
         `;
@@ -1425,7 +1624,7 @@
             <div class="profile-info">
               <h2>${escapeHTML(user.name)}</h2>
               <p style="margin:2px 0 0;color:var(--muted);font-size:.84rem">${escapeHTML(user.handle)} · ${escapeHTML(user.bio || "")}</p>
-              <span class="profile-role">${icon("shield")} Administrator demo account</span>
+              <span class="profile-role">${icon(user.role === "admin" ? "shield" : "user")} ${user.role === "admin" ? "Administrator demo account" : "Member demo account"}</span>
             </div>
             <a class="button button-primary" href="#write/start">${icon("plus")} New story</a>
             <div class="profile-stats">
@@ -1437,16 +1636,16 @@
 
           <div class="content-toolbar">
             <div class="tabs" role="tablist" aria-label="Profile stories">
-              <button class="tab-button ${profileFilter === "stories" ? "active" : ""}" type="button" role="tab" data-profile-filter="stories">My stories <span>${published}</span></button>
-              <button class="tab-button ${profileFilter === "drafts" ? "active" : ""}" type="button" role="tab" data-profile-filter="drafts">Drafts <span>${drafts}</span></button>
-              <button class="tab-button ${profileFilter === "liked" ? "active" : ""}" type="button" role="tab" data-profile-filter="liked">Liked</button>
+              <button class="tab-button ${profileFilter === "stories" ? "active" : ""}" id="profile-tab-stories" type="button" role="tab" data-profile-filter="stories" aria-selected="${profileFilter === "stories"}" aria-controls="profile-story-list" tabindex="${profileFilter === "stories" ? "0" : "-1"}">My stories <span>${published}</span></button>
+              <button class="tab-button ${profileFilter === "drafts" ? "active" : ""}" id="profile-tab-drafts" type="button" role="tab" data-profile-filter="drafts" aria-selected="${profileFilter === "drafts"}" aria-controls="profile-story-list" tabindex="${profileFilter === "drafts" ? "0" : "-1"}">Drafts <span>${drafts}</span></button>
+              <button class="tab-button ${profileFilter === "liked" ? "active" : ""}" id="profile-tab-liked" type="button" role="tab" data-profile-filter="liked" aria-selected="${profileFilter === "liked"}" aria-controls="profile-story-list" tabindex="${profileFilter === "liked" ? "0" : "-1"}">Liked</button>
             </div>
             <div class="toolbar-actions">
               <button class="button button-secondary button-small" type="button" data-action="account-data">Account data</button>
               <a class="button button-primary button-small" href="#write/start">${icon("pen")} Write</a>
             </div>
           </div>
-          <section id="profile-story-list" aria-live="polite">${renderProfileStoryList(user)}</section>
+          <section id="profile-story-list" role="tabpanel" aria-labelledby="profile-tab-${profileFilter}" tabindex="0" aria-live="polite">${renderProfileStoryList(user)}</section>
         </div>
       </div>
     `;
@@ -1455,19 +1654,20 @@
   function confirmDeleteStory(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
-    if (!story || !user || story.authorId !== user.id) return;
+    if (!story || !user || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+    const isDraft = story.status === "draft";
     const descendants = descendantCount(story.id);
     openDialog({
-      title: "Delete this chapter?",
-      subtitle: "Its place in the story tree will be preserved.",
+      title: isDraft ? "Delete this draft?" : "Delete this chapter?",
+      subtitle: isDraft ? "This unpublished draft will be removed permanently." : "Its place in the story tree will be preserved.",
       body: `
         <div class="confirm-illustration">${icon("trash")}</div>
-        <p>The public content of <strong>“${escapeHTML(story.title)}”</strong> and its comments will be removed.</p>
-        ${descendants ? `<p><strong>${descendants} ${descendants === 1 ? "later chapter" : "later chapters"}</strong> will remain readable. A deleted placeholder will connect them to the earlier story.</p>` : ""}
+        <p>${isDraft ? `Permanently remove <strong>“${escapeHTML(story.title)}”</strong>? It has never been published.` : `The public content of <strong>“${escapeHTML(story.title)}”</strong> and its comments will be removed.`}</p>
+        ${!isDraft && descendants ? `<p><strong>${descendants} ${descendants === 1 ? "later chapter" : "later chapters"}</strong> will remain readable. A deleted placeholder will connect them to the earlier story.</p>` : ""}
       `,
       actions: `
-        <button class="button button-secondary" type="button" data-action="close-dialog">Keep chapter</button>
-        <button class="button button-danger" type="button" data-action="confirm-delete-story" data-story-id="${story.id}">${icon("trash")} Delete chapter</button>
+        <button class="button button-secondary" type="button" data-action="close-dialog">${isDraft ? "Keep draft" : "Keep chapter"}</button>
+        <button class="button button-danger" type="button" data-action="confirm-delete-story" data-story-id="${story.id}">${icon("trash")} ${isDraft ? "Delete draft" : "Delete chapter"}</button>
       `
     });
   }
@@ -1475,11 +1675,26 @@
   function deleteStory(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
-    if (!story || !user || story.authorId !== user.id) return;
+    if (!story || !user || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+    if (story.status === "draft") {
+      data.stories = data.stories.filter((candidate) => candidate.id !== story.id);
+      data.comments = data.comments.filter((comment) => comment.storyId !== story.id);
+      delete preferredChildByParent[story.id];
+      savePreferredBranches();
+      saveData();
+      closeAppDialog();
+      renderProfile();
+      showToast("Draft permanently deleted.");
+      return;
+    }
     story.status = "deleted";
+    story.deletionSource = "author";
     story.updatedAt = "Just now";
     data.comments.forEach((comment) => {
-      if (comment.storyId === story.id) comment.status = "deleted";
+      if (comment.storyId === story.id && comment.status === "active") {
+        comment.status = "deleted";
+        comment.deletionSource = "story";
+      }
     });
     saveData();
     closeAppDialog();
@@ -1492,7 +1707,7 @@
       title: "Account data",
       subtitle: "Your story tree relationships are preserved if you leave.",
       body: `
-        <p>Deleting the demo account removes the public content of every story you authored and all comments beneath those stories. Your comments elsewhere are anonymized.</p>
+        <p>Deleting the demo account removes the public content of every story you authored, all comments beneath those stories, and comments you wrote elsewhere.</p>
         <p>Descendant stories written by other members remain available, connected through deleted placeholders.</p>
       `,
       actions: `
@@ -1505,16 +1720,52 @@
   function deleteAccountData() {
     const user = currentUser();
     if (!user) return;
-    const ownedIds = new Set(data.stories.filter((story) => story.authorId === user.id).map((story) => story.id));
+    const ownedStories = data.stories.filter((story) => story.authorId === user.id);
+    const ownedIds = new Set(ownedStories.map((story) => story.id));
+    const ownedDraftIds = new Set(ownedStories.filter((story) => story.status === "draft").map((story) => story.id));
     data.stories.forEach((story) => {
-      if (ownedIds.has(story.id)) {
+      if (ownedIds.has(story.id) && !ownedDraftIds.has(story.id)) {
         story.status = "deleted";
+        story.deletionSource = "account";
+        story.title = "Deleted chapter";
+        story.deck = "";
+        story.body = "";
+        story.genre = "Unavailable";
+        story.reportCount = 0;
+        story.reportedBy = [];
         story.updatedAt = "Just now";
+        story.authorId = null;
+      }
+      const likeIndex = story.likedBy.indexOf(user.id);
+      if (likeIndex >= 0) {
+        story.likedBy.splice(likeIndex, 1);
+        story.likes = Math.max(0, story.likes - 1);
       }
     });
+    data.stories = data.stories.filter((story) => !ownedDraftIds.has(story.id));
+    data.comments = data.comments.filter((comment) => !ownedIds.has(comment.storyId) && comment.authorId !== user.id);
     data.comments.forEach((comment) => {
-      if (ownedIds.has(comment.storyId) || comment.authorId === user.id) comment.status = "deleted";
+      const likeIndex = comment.likedBy.indexOf(user.id);
+      if (likeIndex >= 0) {
+        comment.likedBy.splice(likeIndex, 1);
+        comment.likes = Math.max(0, comment.likes - 1);
+      }
     });
+    data.auditLog.push({ id: createId("audit"), action: "account_erased", actorId: null, storyId: null, createdAt: new Date().toISOString() });
+    Object.entries(data.demoAuthProviders).forEach(([provider, userId]) => {
+      if (userId === user.id) delete data.demoAuthProviders[provider];
+    });
+    Object.entries(preferredChildByParent).forEach(([parentId, childId]) => {
+      if (ownedDraftIds.has(parentId) || ownedDraftIds.has(childId)) delete preferredChildByParent[parentId];
+    });
+    data.users = data.users.filter((candidate) => candidate.id !== user.id);
+    data.notifications = data.notifications.filter((notification) => (
+      notification.recipientId !== user.id
+      && notification.actorId !== user.id
+      && !ownedIds.has(notification.storyId)
+      && !ownedIds.has(notification.targetStoryId)
+    ));
+    savePreferredBranches();
     saveData();
     session = { userId: null };
     saveSession();
@@ -1527,13 +1778,16 @@
     if (notification.type === "continuation") return "continued your chapter";
     if (notification.type === "reply") return "replied to your comment";
     if (notification.type === "comment") return "commented on your chapter";
+    if (notification.type === "comment_like") return "liked your comment";
     return "liked your chapter";
   }
 
   function filteredNotifications() {
-    if (inboxFilter === "all") return data.notifications;
-    if (inboxFilter === "unread") return data.notifications.filter((item) => !item.read);
-    return data.notifications.filter((item) => item.type === inboxFilter);
+    const notifications = notificationsForUser();
+    if (inboxFilter === "all") return notifications;
+    if (inboxFilter === "unread") return notifications.filter((item) => !item.read);
+    if (inboxFilter === "like") return notifications.filter((item) => item.type === "like" || item.type === "comment_like");
+    return notifications.filter((item) => item.type === inboxFilter);
   }
 
   function renderNotificationList() {
@@ -1543,12 +1797,13 @@
       ${items.map((notification) => {
         const actor = userById(notification.actorId);
         const story = storyById(notification.storyId);
+        const storyIsAvailable = story?.status === "active";
         return `
           <li class="notification-item ${notification.read ? "" : "unread"}" data-notification-id="${notification.id}" data-story-id="${notification.storyId}" tabindex="0" role="link">
             ${avatar(actor)}
             <div class="notification-copy">
-              <p><strong>${escapeHTML(actor.name)}</strong> ${notificationLabel(notification)}${story ? ` in <strong>“${escapeHTML(story.title)}”</strong>` : ""}.</p>
-              ${notification.quote ? `<p class="notification-quote">“${escapeHTML(notification.quote)}”</p>` : ""}
+              <p><strong>${escapeHTML(actor.name)}</strong> ${notificationLabel(notification)}${story ? ` in <strong>“${storyIsAvailable ? escapeHTML(story.title) : "an unavailable chapter"}”</strong>` : ""}.</p>
+              ${notification.quote && storyIsAvailable ? `<p class="notification-quote">“${escapeHTML(notification.quote)}”</p>` : ""}
             </div>
             <span class="notification-time">${escapeHTML(notification.createdAt)}</span>
           </li>
@@ -1563,14 +1818,15 @@
       renderAuthWall("Your inbox is waiting.", "Sign in to see replies, new continuations, comments, and likes.");
       return;
     }
+    const userNotifications = notificationsForUser(user.id);
     const counts = {
-      all: data.notifications.length,
-      unread: data.notifications.filter((item) => !item.read).length,
-      continuation: data.notifications.filter((item) => item.type === "continuation").length,
-      reply: data.notifications.filter((item) => item.type === "reply").length,
-      like: data.notifications.filter((item) => item.type === "like").length
+      all: userNotifications.length,
+      unread: userNotifications.filter((item) => !item.read).length,
+      continuation: userNotifications.filter((item) => item.type === "continuation").length,
+      reply: userNotifications.filter((item) => item.type === "reply").length,
+      like: userNotifications.filter((item) => item.type === "like" || item.type === "comment_like").length
     };
-    const filterButton = (id, label) => `<button class="inbox-filter ${inboxFilter === id ? "active" : ""}" type="button" data-inbox-filter="${id}"><span>${label}</span><span>${counts[id]}</span></button>`;
+    const filterButton = (id, label) => `<button class="inbox-filter ${inboxFilter === id ? "active" : ""}" type="button" data-inbox-filter="${id}" aria-pressed="${inboxFilter === id}"><span>${label}</span><span>${counts[id]}</span></button>`;
     main.innerHTML = `
       <div class="standard-page">
         <section class="page-hero">
@@ -1599,7 +1855,8 @@
   }
 
   function openNotification(notificationId) {
-    const notification = data.notifications.find((item) => item.id === notificationId);
+    const user = currentUser();
+    const notification = data.notifications.find((item) => item.id === notificationId && item.recipientId === user?.id);
     if (!notification) return;
     notification.read = true;
     saveData();
@@ -1607,9 +1864,10 @@
   }
 
   function markAllNotificationsRead() {
-    data.notifications.forEach((item) => { item.read = true; });
+    notificationsForUser().forEach((item) => { item.read = true; });
     saveData();
-    renderApp();
+    renderInbox();
+    renderHeader(getRoute());
     showToast("Everything is marked as read.");
   }
 
@@ -1630,6 +1888,7 @@
     return `<ul class="admin-list">
       ${stories.map((story) => {
         const author = userById(story.authorId);
+        const restorable = (story.status === "reported" || story.status === "deleted") && story.deletionSource !== "account";
         return `
           <li class="admin-row">
             <div class="admin-story-cell"><strong>${escapeHTML(story.title)}</strong><span>${story.id} · Level ${getLevel(story)} · Updated ${escapeHTML(story.updatedAt)}</span></div>
@@ -1638,7 +1897,7 @@
             <span class="report-count" aria-label="${story.reportCount} reports">${story.reportCount}</span>
             <div class="admin-actions">
               <button class="button button-secondary button-small" type="button" data-admin-inspect="${story.id}">${icon("eye")} Inspect</button>
-              ${story.status === "reported" || story.status === "deleted" ? `<button class="button button-primary button-small" type="button" data-admin-restore="${story.id}">${icon("refresh")} Restore</button>` : story.status === "active" ? `<button class="icon-button" type="button" data-admin-hide="${story.id}" aria-label="Hide ${escapeHTML(story.title)}">${icon("flag")}</button>` : ""}
+              ${restorable ? `<button class="button button-primary button-small" type="button" data-admin-restore="${story.id}">${icon("refresh")} Restore</button>` : story.deletionSource === "account" ? `<span class="status-badge deleted">Permanently erased</span>` : story.status === "active" ? `<button class="icon-button" type="button" data-admin-hide="${story.id}" aria-label="Hide ${escapeHTML(story.title)}">${icon("flag")}</button>` : ""}
             </div>
           </li>
         `;
@@ -1703,12 +1962,13 @@
     const story = storyById(storyId);
     if (!story || currentUser()?.role !== "admin") return;
     const author = userById(story.authorId);
+    const restorable = (story.status === "reported" || story.status === "deleted") && story.deletionSource !== "account";
     openDialog({
       title: "Inspect chapter",
       subtitle: `${story.id} · ${formatStatus(story.status)}`,
       wide: true,
       body: `
-        <div class="inspection-story"><h3>${escapeHTML(story.title)}</h3><p>${escapeHTML(story.body)}</p></div>
+        <div class="inspection-story"><h3>${escapeHTML(story.title)}</h3><p>${escapeHTML(story.body || (story.deletionSource === "account" ? "Content permanently erased with the author's account." : "No content available."))}</p></div>
         <div class="metadata-grid">
           <div class="metadata-item"><span>Author</span><strong>${escapeHTML(author.name)}</strong></div>
           <div class="metadata-item"><span>Reports</span><strong>${story.reportCount} distinct reports</strong></div>
@@ -1718,21 +1978,31 @@
       `,
       actions: `
         <button class="button button-secondary" type="button" data-story-id="${story.id}" data-action="view-from-admin">View in tree</button>
-        ${story.status === "reported" || story.status === "deleted" ? `<button class="button button-primary" type="button" data-admin-restore="${story.id}">${icon("refresh")} Restore chapter</button>` : `<button class="button button-danger" type="button" data-admin-hide="${story.id}">${icon("flag")} Hide chapter</button>`}
+        ${restorable ? `<button class="button button-primary" type="button" data-admin-restore="${story.id}">${icon("refresh")} Restore chapter</button>` : story.status === "active" ? `<button class="button button-danger" type="button" data-admin-hide="${story.id}">${icon("flag")} Hide chapter</button>` : ""}
       `
     });
   }
 
   function restoreStory(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin") return;
+    if (!story || currentUser()?.role !== "admin" || !["reported", "deleted"].includes(story.status)) return;
+    if (story.deletionSource === "account") {
+      showToast("Account-erased content cannot be restored.", "info");
+      return;
+    }
+    const previousStatus = story.status;
     story.status = "active";
+    story.deletionSource = null;
     story.reportCount = 0;
     story.reportedBy = [];
     story.updatedAt = "Just now";
     data.comments.forEach((comment) => {
-      if (comment.storyId === story.id && comment.status === "deleted") comment.status = "active";
+      if (comment.storyId === story.id && comment.status === "deleted" && comment.deletionSource === "story") {
+        comment.status = "active";
+        comment.deletionSource = null;
+      }
     });
+    recordAudit("story_restored", story, previousStatus);
     saveData();
     closeAppDialog();
     renderApp();
@@ -1741,7 +2011,7 @@
 
   function confirmAdminHide(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin") return;
+    if (!story || currentUser()?.role !== "admin" || story.status !== "active") return;
     openDialog({
       title: "Hide this chapter?",
       subtitle: "Its descendants will remain accessible through a placeholder.",
@@ -1752,10 +2022,13 @@
 
   function adminHide(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin") return;
+    if (!story || currentUser()?.role !== "admin" || story.status !== "active") return;
+    const previousStatus = story.status;
     story.status = "reported";
+    story.deletionSource = "moderation";
     story.reportCount = Math.max(4, story.reportCount);
     story.updatedAt = "Just now";
+    recordAudit("story_hidden", story, previousStatus);
     saveData();
     closeAppDialog();
     renderApp();
@@ -1768,12 +2041,18 @@
     const normalized = query.trim().toLowerCase();
     const matches = data.stories
       .filter((story) => story.status !== "draft")
-      .filter((story) => !normalized || story.title.toLowerCase().includes(normalized) || story.genre.toLowerCase().includes(normalized) || userById(story.authorId).name.toLowerCase().includes(normalized))
+      .filter((story) => {
+        if (!normalized) return true;
+        if (story.status !== "active") return ["unavailable", "reported", "deleted", "chapter"].some((term) => term.includes(normalized));
+        return story.title.toLowerCase().includes(normalized)
+          || story.genre.toLowerCase().includes(normalized)
+          || userById(story.authorId).name.toLowerCase().includes(normalized);
+      })
       .slice(0, 7);
     list.innerHTML = matches.length ? matches.map((story) => `
       <li>
         <button class="search-result-button" type="button" data-story-id="${story.id}">
-          <span class="search-result-copy"><strong>${escapeHTML(story.status === "active" ? story.title : story.status === "reported" ? "Reported chapter" : "Deleted chapter")}</strong><span>${escapeHTML(userById(story.authorId).name)} · ${escapeHTML(story.genre)}</span></span>
+          <span class="search-result-copy"><strong>${escapeHTML(story.status === "active" ? story.title : story.status === "reported" ? "Reported chapter" : "Deleted chapter")}</strong><span>${story.status === "active" ? `${escapeHTML(userById(story.authorId).name)} · ${escapeHTML(story.genre)}` : "Content unavailable · branch preserved"}</span></span>
           <span class="level-tag">Level ${getLevel(story)}</span>
         </button>
       </li>
@@ -1796,6 +2075,7 @@
   }
 
   function resetDemoData() {
+    if (currentUser()?.role !== "admin") return;
     data = cloneData(initialData);
     preferredChildByParent = {};
     saveData();
@@ -1877,6 +2157,7 @@
       event.preventDefault();
       profileFilter = profileTab.dataset.profileFilter;
       renderProfile();
+      requestAnimationFrame(() => document.getElementById(`profile-tab-${profileFilter}`)?.focus());
       return;
     }
 
@@ -1891,10 +2172,7 @@
     const notification = event.target.closest("[data-notification-id]");
     if (notification) {
       event.preventDefault();
-      const item = data.notifications.find((entry) => entry.id === notification.dataset.notificationId);
-      if (item) item.read = true;
-      saveData();
-      routeTo(`story/${notification.dataset.storyId}`);
+      openNotification(notification.dataset.notificationId);
       return;
     }
 
@@ -1933,6 +2211,7 @@
       if (!(action === "close-dialog" && actionTarget.tagName === "A")) event.preventDefault();
       switch (action) {
         case "sign-in": openAuthModal("Sign in to write, react, comment, and report."); break;
+        case "sign-in-route": openAuthModal("Sign in to open this member page."); break;
         case "user-menu": openUserMenu(); break;
         case "open-inbox": routeTo("inbox"); break;
         case "search": openSearch(); break;
@@ -1951,17 +2230,10 @@
         case "pick-branch": openBranchPicker(storyId); break;
         case "copy-share-link": copyShareLink(); break;
         case "native-share": {
-          const story = storyById(storyId);
-          if (story && navigator.share) navigator.share({ title: story.title, text: story.deck, url: `${location.origin}${location.pathname}#story/${story.id}` }).catch(() => {});
+          nativeShare(storyId);
           break;
         }
-        case "close-comments": {
-          if (commentsDialog.open) commentsDialog.close();
-          activeCommentsStoryId = null;
-          replyTargetId = null;
-          if (!appDialog.open) document.body.classList.remove("dialog-open");
-          break;
-        }
+        case "close-comments": closeComments(); break;
         case "comment-sign-in": {
           const returnStoryId = activeCommentsStoryId;
           if (commentsDialog.open) commentsDialog.close();
@@ -1974,14 +2246,7 @@
         case "account-data": openAccountDataDialog(); break;
         case "confirm-delete-story": deleteStory(storyId); break;
         case "delete-account": deleteAccountData(); break;
-        case "mark-all-read": {
-          data.notifications.forEach((item) => { item.read = true; });
-          saveData();
-          renderInbox();
-          renderHeader(getRoute());
-          showToast("Everything is marked as read.");
-          break;
-        }
+        case "mark-all-read": markAllNotificationsRead(); break;
         case "view-from-admin": closeAppDialog(); routeTo(`story/${storyId}`); break;
         case "confirm-admin-hide": adminHide(storyId); break;
         default: break;
@@ -2050,6 +2315,30 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    const notification = event.target.closest?.("[data-notification-id]");
+    const storyLink = event.target.closest?.('[role="link"][data-story-id]');
+    if ((notification || storyLink) && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      event.target.closest(notification ? "[data-notification-id]" : '[role="link"][data-story-id]')?.click();
+      return;
+    }
+
+    const activeProfileTab = event.target.closest?.('[role="tab"][data-profile-filter]');
+    if (activeProfileTab && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const filters = ["stories", "drafts", "liked"];
+      const currentIndex = filters.indexOf(activeProfileTab.dataset.profileFilter);
+      let nextIndex = currentIndex;
+      if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + filters.length) % filters.length;
+      if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % filters.length;
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = filters.length - 1;
+      profileFilter = filters[nextIndex];
+      renderProfile();
+      requestAnimationFrame(() => document.getElementById(`profile-tab-${profileFilter}`)?.focus());
+      return;
+    }
+
     if (getRoute().name !== "reader" || appDialog.open || commentsDialog.open) return;
     if (event.target.matches("input, textarea, select, button, a")) return;
     const card = document.getElementById("story-card");
@@ -2078,14 +2367,21 @@
   });
 
   commentsDialog.addEventListener("close", () => {
+    commentsDialog.replaceChildren();
+    activeCommentsStoryId = null;
+    replyTargetId = null;
     if (!appDialog.open) document.body.classList.remove("dialog-open");
   });
 
   window.addEventListener("hashchange", () => {
-    if (commentsDialog.open) commentsDialog.close();
+    if (commentsDialog.open) closeComments();
     if (appDialog.open) closeAppDialog();
     renderApp();
     window.scrollTo({ top: 0, behavior: "instant" });
+    requestAnimationFrame(() => {
+      const focusTarget = getRoute().name === "reader" ? document.getElementById("story-card") : main;
+      focusTarget?.focus({ preventScroll: true });
+    });
   });
 
   if (!location.hash) history.replaceState(null, "", "#story/s1");
