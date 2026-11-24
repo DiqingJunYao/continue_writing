@@ -1,7 +1,11 @@
-import { getApp, getApps, initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+import {
+  getApp,
+  getApps,
+  initializeApp,
+} from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
 import {
   ReCaptchaEnterpriseProvider,
-  initializeAppCheck
+  initializeAppCheck,
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app-check.js";
 import {
   FacebookAuthProvider,
@@ -11,18 +15,18 @@ import {
   onIdTokenChanged,
   reauthenticateWithPopup,
   signInWithPopup,
-  signOut
+  signOut,
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
 import {
   connectFunctionsEmulator,
   getFunctions,
-  httpsCallable
+  httpsCallable,
 } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-functions.js";
 import {
   firebaseConfig,
   firebaseAppCheckSiteKey,
   firebaseEmulators,
-  firebaseFunctionsRegion
+  firebaseFunctionsRegion,
 } from "./firebase-config.js";
 
 const REQUIRED_CONFIG_FIELDS = ["apiKey", "authDomain", "projectId", "appId"];
@@ -39,11 +43,11 @@ const CALLABLE_FUNCTIONS = new Set([
   "deleteStory",
   "deleteAccount",
   "moderateStory",
-  "markNotificationsRead"
+  "markNotificationsRead",
 ]);
 const CALLABLE_TIMEOUTS = Object.freeze({
   bootstrap: 60_000,
-  deleteAccount: 540_000
+  deleteAccount: 540_000,
 });
 
 let firebaseApp = null;
@@ -70,14 +74,18 @@ export class BranchlineBackendError extends Error {
 }
 
 function isUsableConfigValue(value) {
-  return typeof value === "string"
-    && value.trim().length > 0
-    && !value.includes("REPLACE_")
-    && !value.includes("<YOUR_");
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    !value.includes("REPLACE_") &&
+    !value.includes("<YOUR_")
+  );
 }
 
 export function isFirebaseConfigured() {
-  return REQUIRED_CONFIG_FIELDS.every((field) => isUsableConfigValue(firebaseConfig[field]));
+  return REQUIRED_CONFIG_FIELDS.every((field) =>
+    isUsableConfigValue(firebaseConfig[field]),
+  );
 }
 
 function authSnapshot() {
@@ -86,7 +94,7 @@ function authSnapshot() {
     ready: authResolved,
     user: activeUser,
     claims: activeClaims,
-    error: authError
+    error: authError,
   });
 }
 
@@ -103,25 +111,39 @@ function publishAuthSnapshot() {
 
 function friendlyMessageForCode(code) {
   const messages = {
-    "auth/account-exists-with-different-credential": "An account already exists for this email. Sign in with the Google or Facebook provider you used first.",
-    "auth/popup-blocked": "Your browser blocked the sign-in window. Allow pop-ups for Branchline and try again.",
-    "auth/popup-closed-by-user": "The sign-in window was closed before sign-in finished.",
+    "auth/account-exists-with-different-credential":
+      "An account already exists for this email. Sign in with the Google or Facebook provider you used first.",
+    "auth/popup-blocked":
+      "Your browser blocked the sign-in window. Allow pop-ups for Branchline and try again.",
+    "auth/popup-closed-by-user":
+      "The sign-in window was closed before sign-in finished.",
     "auth/cancelled-popup-request": "Another sign-in window is already open.",
-    "auth/network-request-failed": "The sign-in service could not be reached. Check your connection and try again.",
-    "auth/requires-recent-login": "Confirm your identity again before deleting your account.",
-    "auth/unauthorized-domain": "This website domain has not been authorized in Firebase Authentication.",
+    "auth/network-request-failed":
+      "The sign-in service could not be reached. Check your connection and try again.",
+    "auth/requires-recent-login":
+      "Confirm your identity again before deleting your account.",
+    "auth/unauthorized-domain":
+      "This website domain has not been authorized in Firebase Authentication.",
     "functions/unauthenticated": "Sign in before doing that.",
-    "functions/permission-denied": "Your account does not have permission to do that.",
-    "functions/invalid-argument": "Some submitted information is invalid. Check the form and try again.",
+    "functions/permission-denied":
+      "Your account does not have permission to do that.",
+    "functions/invalid-argument":
+      "Some submitted information is invalid. Check the form and try again.",
     "functions/not-found": "The requested story or comment no longer exists.",
     "functions/already-exists": "That action has already been recorded.",
-    "functions/failed-precondition": "That action is not available in the chapter's current state.",
-    "functions/resource-exhausted": "Too many requests were made. Wait a moment and try again.",
-    "functions/deadline-exceeded": "The server took too long to respond. Try again.",
-    "functions/unavailable": "Branchline's shared service is temporarily unavailable. Try again shortly.",
-    "functions/internal": "The shared service encountered an error. Try again."
+    "functions/failed-precondition":
+      "That action is not available in the chapter's current state.",
+    "functions/resource-exhausted":
+      "Too many requests were made. Wait a moment and try again.",
+    "functions/deadline-exceeded":
+      "The server took too long to respond. Try again.",
+    "functions/unavailable":
+      "Branchline's shared service is temporarily unavailable. Try again shortly.",
+    "functions/internal": "The shared service encountered an error. Try again.",
   };
-  return messages[code] || "Branchline could not complete that request. Try again.";
+  return (
+    messages[code] || "Branchline could not complete that request. Try again."
+  );
 }
 
 function normalizeError(error, fallbackCode = "backend/unknown") {
@@ -129,7 +151,7 @@ function normalizeError(error, fallbackCode = "backend/unknown") {
   const code = typeof error?.code === "string" ? error.code : fallbackCode;
   return new BranchlineBackendError(code, friendlyMessageForCode(code), {
     cause: error,
-    details: code.startsWith("functions/") ? error?.details ?? null : null
+    details: code.startsWith("functions/") ? (error?.details ?? null) : null,
   });
 }
 
@@ -137,7 +159,7 @@ function requireConfigured() {
   if (!isFirebaseConfigured()) {
     throw new BranchlineBackendError(
       "backend/not-configured",
-      "Firebase is not configured for this Branchline build."
+      "Firebase is not configured for this Branchline build.",
     );
   }
 }
@@ -145,35 +167,39 @@ function requireConfigured() {
 function startAuthObserver() {
   if (authObserverStarted) return;
   authObserverStarted = true;
-  authObserverUnsubscribe = onIdTokenChanged(firebaseAuth, async (user) => {
-    const revision = ++authRevision;
-    activeUser = user;
-    activeClaims = Object.freeze({});
-    authError = null;
-    if (user) {
-      try {
-        const token = await user.getIdTokenResult();
-        if (revision !== authRevision) return;
-        activeClaims = Object.freeze({ ...token.claims });
-      } catch (error) {
-        if (revision !== authRevision) return;
-        authError = normalizeError(error, "auth/token-refresh-failed");
+  authObserverUnsubscribe = onIdTokenChanged(
+    firebaseAuth,
+    async (user) => {
+      const revision = ++authRevision;
+      activeUser = user;
+      activeClaims = Object.freeze({});
+      authError = null;
+      if (user) {
+        try {
+          const token = await user.getIdTokenResult();
+          if (revision !== authRevision) return;
+          activeClaims = Object.freeze({ ...token.claims });
+        } catch (error) {
+          if (revision !== authRevision) return;
+          authError = normalizeError(error, "auth/token-refresh-failed");
+        }
       }
-    }
-    if (revision !== authRevision) return;
-    authResolved = true;
-    publishAuthSnapshot();
-  }, (error) => {
-    authRevision += 1;
-    activeUser = null;
-    activeClaims = Object.freeze({});
-    authError = normalizeError(error, "auth/observer-failed");
-    authResolved = true;
-    authObserverUnsubscribe?.();
-    authObserverUnsubscribe = null;
-    authObserverStarted = false;
-    publishAuthSnapshot();
-  });
+      if (revision !== authRevision) return;
+      authResolved = true;
+      publishAuthSnapshot();
+    },
+    (error) => {
+      authRevision += 1;
+      activeUser = null;
+      activeClaims = Object.freeze({});
+      authError = normalizeError(error, "auth/observer-failed");
+      authResolved = true;
+      authObserverUnsubscribe?.();
+      authObserverUnsubscribe = null;
+      authObserverStarted = false;
+      publishAuthSnapshot();
+    },
+  );
 }
 
 export async function initializeFirebaseBackend() {
@@ -186,7 +212,7 @@ export async function initializeFirebaseBackend() {
       if (!firebaseEmulators.enabled && firebaseAppCheckSiteKey) {
         initializeAppCheck(firebaseApp, {
           provider: new ReCaptchaEnterpriseProvider(firebaseAppCheckSiteKey),
-          isTokenAutoRefreshEnabled: true
+          isTokenAutoRefreshEnabled: true,
         });
       }
       firebaseAuth = getAuth(firebaseApp);
@@ -196,12 +222,12 @@ export async function initializeFirebaseBackend() {
         connectAuthEmulator(
           firebaseAuth,
           `http://${firebaseEmulators.host}:${firebaseEmulators.authPort}`,
-          { disableWarnings: true }
+          { disableWarnings: true },
         );
         connectFunctionsEmulator(
           firebaseFunctions,
           firebaseEmulators.host,
-          firebaseEmulators.functionsPort
+          firebaseEmulators.functionsPort,
         );
       }
 
@@ -254,7 +280,10 @@ function providerForName(providerName) {
     provider.addScope("email");
     provider.addScope("public_profile");
   } else {
-    throw new BranchlineBackendError("auth/unsupported-provider", "Choose Google or Facebook to sign in.");
+    throw new BranchlineBackendError(
+      "auth/unsupported-provider",
+      "Choose Google or Facebook to sign in.",
+    );
   }
   return provider;
 }
@@ -275,7 +304,10 @@ export async function signInWithFirebase(providerName) {
 export async function reauthenticateFirebaseUser() {
   await initializeFirebaseBackend();
   if (!activeUser) {
-    throw new BranchlineBackendError("functions/unauthenticated", "Sign in before deleting your account.");
+    throw new BranchlineBackendError(
+      "functions/unauthenticated",
+      "Sign in before deleting your account.",
+    );
   }
   const providerId = activeUser.providerData
     .map((profile) => profile.providerId)
@@ -283,12 +315,15 @@ export async function reauthenticateFirebaseUser() {
   if (!providerId) {
     throw new BranchlineBackendError(
       "auth/unsupported-provider",
-      "This account must be confirmed with Google or Facebook before deletion."
+      "This account must be confirmed with Google or Facebook before deletion.",
     );
   }
 
   try {
-    await reauthenticateWithPopup(activeUser, providerForName(providerId === "facebook.com" ? "facebook" : "google"));
+    await reauthenticateWithPopup(
+      activeUser,
+      providerForName(providerId === "facebook.com" ? "facebook" : "google"),
+    );
     await activeUser.getIdToken(true);
   } catch (error) {
     throw normalizeError(error, "auth/requires-recent-login");
@@ -306,13 +341,19 @@ export async function signOutFirebase() {
 
 export async function callBackend(name, payload = {}) {
   if (!CALLABLE_FUNCTIONS.has(name)) {
-    throw new BranchlineBackendError("backend/unknown-operation", "Branchline does not recognize that operation.");
+    throw new BranchlineBackendError(
+      "backend/unknown-operation",
+      "Branchline does not recognize that operation.",
+    );
   }
   await initializeFirebaseBackend();
   if (!callableCache.has(name)) {
-    callableCache.set(name, httpsCallable(firebaseFunctions, name, {
-      timeout: CALLABLE_TIMEOUTS[name] || 30_000
-    }));
+    callableCache.set(
+      name,
+      httpsCallable(firebaseFunctions, name, {
+        timeout: CALLABLE_TIMEOUTS[name] || 30_000,
+      }),
+    );
   }
   try {
     const result = await callableCache.get(name)(payload);

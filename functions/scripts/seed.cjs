@@ -13,7 +13,9 @@ try {
 }
 const usingEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 if (!usingEmulator && process.env.BRANCHLINE_ALLOW_PRODUCTION_SEED !== "yes") {
-  console.error("Production seeding is disabled. Use the Firestore emulator or set BRANCHLINE_ALLOW_PRODUCTION_SEED=yes deliberately.");
+  console.error(
+    "Production seeding is disabled. Use the Firestore emulator or set BRANCHLINE_ALLOW_PRODUCTION_SEED=yes deliberately.",
+  );
   process.exit(1);
 }
 
@@ -22,9 +24,36 @@ const db = getFirestore();
 const now = Timestamp.now();
 
 const profiles = {
-  demo_nora: { name: "Nora Vale", handle: "@noravale", initials: "NV", tone: "green", bio: "Writes toward the strange light.", avatarUrl: "", createdAt: now, updatedAt: now },
-  demo_jules: { name: "Jules Park", handle: "@julespark", initials: "JP", tone: "blue", bio: "Collector of unsettling endings.", avatarUrl: "", createdAt: now, updatedAt: now },
-  demo_imani: { name: "Imani Cross", handle: "@imanicross", initials: "IC", tone: "purple", bio: "Builds rooms behind ordinary doors.", avatarUrl: "", createdAt: now, updatedAt: now }
+  demo_nora: {
+    name: "Nora Vale",
+    handle: "@noravale",
+    initials: "NV",
+    tone: "green",
+    bio: "Writes toward the strange light.",
+    avatarUrl: "",
+    createdAt: now,
+    updatedAt: now,
+  },
+  demo_jules: {
+    name: "Jules Park",
+    handle: "@julespark",
+    initials: "JP",
+    tone: "blue",
+    bio: "Collector of unsettling endings.",
+    avatarUrl: "",
+    createdAt: now,
+    updatedAt: now,
+  },
+  demo_imani: {
+    name: "Imani Cross",
+    handle: "@imanicross",
+    initials: "IC",
+    tone: "purple",
+    bio: "Builds rooms behind ordinary doors.",
+    avatarUrl: "",
+    createdAt: now,
+    updatedAt: now,
+  },
 };
 
 const stories = {
@@ -44,7 +73,7 @@ const stories = {
     updatedAt: now,
     likes: 0,
     commentCount: 1,
-    views: 0
+    views: 0,
   },
   seed_signal: {
     parentId: "seed_lightkeeper",
@@ -62,7 +91,7 @@ const stories = {
     updatedAt: now,
     likes: 0,
     commentCount: 0,
-    views: 0
+    views: 0,
   },
   seed_house: {
     parentId: null,
@@ -80,8 +109,8 @@ const stories = {
     updatedAt: now,
     likes: 0,
     commentCount: 0,
-    views: 0
-  }
+    views: 0,
+  },
 };
 
 const comments = {
@@ -95,17 +124,25 @@ const comments = {
     text: "That final image feels like an invitation to keep walking into the fog.",
     createdAt: now,
     updatedAt: now,
-    likes: 0
-  }
+    likes: 0,
+  },
 };
 
 async function main() {
   const batch = db.batch();
-  Object.entries(profiles).forEach(([id, value]) => batch.set(db.collection("profiles").doc(id), value, { merge: true }));
-  Object.entries(stories).forEach(([id, value]) => batch.set(db.collection("stories").doc(id), value, { merge: true }));
-  Object.entries(comments).forEach(([id, value]) => batch.set(db.collection("comments").doc(id), value, { merge: true }));
+  Object.entries(profiles).forEach(([id, value]) =>
+    batch.set(db.collection("profiles").doc(id), value, { merge: true }),
+  );
+  Object.entries(stories).forEach(([id, value]) =>
+    batch.set(db.collection("stories").doc(id), value, { merge: true }),
+  );
+  Object.entries(comments).forEach(([id, value]) =>
+    batch.set(db.collection("comments").doc(id), value, { merge: true }),
+  );
   await batch.commit();
-  console.log(`Seeded ${Object.keys(profiles).length} profiles, ${Object.keys(stories).length} stories, and ${Object.keys(comments).length} comment in ${projectId}.`);
+  console.log(
+    `Seeded ${Object.keys(profiles).length} profiles, ${Object.keys(stories).length} stories, and ${Object.keys(comments).length} comment in ${projectId}.`,
+  );
 }
 
 main().catch((error) => {

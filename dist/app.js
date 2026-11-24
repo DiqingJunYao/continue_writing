@@ -7,7 +7,7 @@ import {
   reauthenticateFirebaseUser,
   signInWithFirebase,
   signOutFirebase,
-  subscribeToAuth
+  subscribeToAuth,
 } from "./firebase-client.js";
 
 (() => {
@@ -15,20 +15,35 @@ import {
 
   const PATH_KEY = "branchline-preferred-branches-v1";
 
-  const emptyData = () => ({ users: [], stories: [], comments: [], notifications: [], auditLog: [], truncated: false });
+  const emptyData = () => ({
+    users: [],
+    stories: [],
+    comments: [],
+    notifications: [],
+    auditLog: [],
+    truncated: false,
+  });
 
   function normalizeBootstrap(payload = {}) {
     const normalized = {
-      users: Array.isArray(payload.users) ? payload.users : Array.isArray(payload.profiles) ? payload.profiles : [],
+      users: Array.isArray(payload.users)
+        ? payload.users
+        : Array.isArray(payload.profiles)
+          ? payload.profiles
+          : [],
       stories: Array.isArray(payload.stories) ? payload.stories : [],
       comments: Array.isArray(payload.comments) ? payload.comments : [],
-      notifications: Array.isArray(payload.notifications) ? payload.notifications : [],
+      notifications: Array.isArray(payload.notifications)
+        ? payload.notifications
+        : [],
       auditLog: Array.isArray(payload.auditLog) ? payload.auditLog : [],
-      truncated: payload.truncated === true
+      truncated: payload.truncated === true,
     };
     normalized.stories.forEach((story) => {
       story.likedBy = Array.isArray(story.likedBy) ? story.likedBy : [];
-      story.reportedBy = Array.isArray(story.reportedBy) ? story.reportedBy : [];
+      story.reportedBy = Array.isArray(story.reportedBy)
+        ? story.reportedBy
+        : [];
       story.likes = Number(story.likes || 0);
       story.views = Number(story.views || 0);
       story.reportCount = Number(story.reportCount || 0);
@@ -43,7 +58,9 @@ import {
   function loadPreferredBranches() {
     try {
       const parsed = JSON.parse(localStorage.getItem(PATH_KEY));
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed
+        : {};
     } catch {
       return {};
     }
@@ -108,7 +125,9 @@ import {
 
   function notificationsForUser(userId = currentUser()?.id) {
     if (!userId) return [];
-    return data.notifications.filter((notification) => notification.recipientId === userId);
+    return data.notifications.filter(
+      (notification) => notification.recipientId === userId,
+    );
   }
 
   function icon(name, className = "") {
@@ -116,9 +135,12 @@ import {
       search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
       bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
       plus: '<path d="M12 5v14M5 12h14"/>',
-      heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>',
-      message: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/>',
-      share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/>',
+      heart:
+        '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>',
+      message:
+        '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/>',
+      share:
+        '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/>',
       flag: '<path d="M5 22V4"/><path d="M5 4h12l-2 4 2 4H5"/>',
       chevronLeft: '<path d="m15 18-6-6 6-6"/>',
       chevronRight: '<path d="m9 18 6-6-6-6"/>',
@@ -128,32 +150,48 @@ import {
       pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
       home: '<path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/>',
       user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-      shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
-      logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
-      refresh: '<path d="M20 6v6h-6"/><path d="M4 18v-6h6"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 9m16 6-2 2.5A7 7 0 0 1 5.5 15"/>',
+      shield:
+        '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+      logout:
+        '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+      refresh:
+        '<path d="M20 6v6h-6"/><path d="M4 18v-6h6"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 9m16 6-2 2.5A7 7 0 0 1 5.5 15"/>',
       x: '<path d="M18 6 6 18M6 6l12 12"/>',
       check: '<path d="m20 6-11 11-5-5"/>',
       trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5"/>',
       edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
       eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
-      branch: '<path d="M6 3v12a4 4 0 0 0 4 4h8"/><path d="m14 15 4 4-4 4"/><circle cx="6" cy="3" r="2"/><path d="M6 9h7a4 4 0 0 0 4-4V3"/><circle cx="17" cy="3" r="2"/>',
+      branch:
+        '<path d="M6 3v12a4 4 0 0 0 4 4h8"/><path d="m14 15 4 4-4 4"/><circle cx="6" cy="3" r="2"/><path d="M6 9h7a4 4 0 0 0 4-4V3"/><circle cx="17" cy="3" r="2"/>',
       book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z"/><path d="M4 6.5v13A2.5 2.5 0 0 0 6.5 22H20"/>',
       copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
       info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
-      sparkles: '<path d="m12 3-1.2 3.2L8 7.5l2.8 1.3L12 12l1.2-3.2L16 7.5l-2.8-1.3Z"/><path d="m19 14-.8 2.2L16 17l2.2.8L19 20l.8-2.2L22 17l-2.2-.8Z"/><path d="m5 13-.8 2.2L2 16l2.2.8L5 19l.8-2.2L8 16l-2.2-.8Z"/>',
+      sparkles:
+        '<path d="m12 3-1.2 3.2L8 7.5l2.8 1.3L12 12l1.2-3.2L16 7.5l-2.8-1.3Z"/><path d="m19 14-.8 2.2L16 17l2.2.8L19 20l.8-2.2L22 17l-2.2-.8Z"/><path d="m5 13-.8 2.2L2 16l2.2.8L5 19l.8-2.2L8 16l-2.2-.8Z"/>',
       save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
-      alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
+      alert:
+        '<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/>',
       clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-      thumbsUp: '<path d="M7 10v12H3V10h4Zm0 10h10.4a2 2 0 0 0 1.9-1.4l2.4-7A2 2 0 0 0 19.8 9H15l.7-3.5A3 3 0 0 0 12.8 2L7 10Z"/>',
+      thumbsUp:
+        '<path d="M7 10v12H3V10h4Zm0 10h10.4a2 2 0 0 0 1.9-1.4l2.4-7A2 2 0 0 0 19.8 9H15l.7-3.5A3 3 0 0 0 12.8 2L7 10Z"/>',
       reply: '<path d="m9 17-5-5 5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
       lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
-      more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>'
+      more: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
     };
     return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.info}</svg>`;
   }
 
   function userById(id) {
-    return data.users.find((user) => user.id === id) || { id: "unknown", name: "Former member", handle: "", initials: "?", tone: "green", role: "user" };
+    return (
+      data.users.find((user) => user.id === id) || {
+        id: "unknown",
+        name: "Former member",
+        handle: "",
+        initials: "?",
+        tone: "green",
+        role: "user",
+      }
+    );
   }
 
   function storyById(id) {
@@ -161,7 +199,9 @@ import {
   }
 
   function currentUser() {
-    return session.userId ? data.users.find((user) => user.id === session.userId) || null : null;
+    return session.userId
+      ? data.users.find((user) => user.id === session.userId) || null
+      : null;
   }
 
   function avatar(user, size = "") {
@@ -173,12 +213,18 @@ import {
   }
 
   function homeStoryId() {
-    const activeRoots = data.stories.filter((story) => story.parentId === null && story.status === "active");
-    return activeRoots.find((story) => childrenOf(story.id).length > 0)?.id
-      || activeRoots[0]?.id
-      || data.stories.find((story) => story.parentId === null && story.status !== "draft")?.id
-      || visibleStories()[0]?.id
-      || null;
+    const activeRoots = data.stories.filter(
+      (story) => story.parentId === null && story.status === "active",
+    );
+    return (
+      activeRoots.find((story) => childrenOf(story.id).length > 0)?.id ||
+      activeRoots[0]?.id ||
+      data.stories.find(
+        (story) => story.parentId === null && story.status !== "draft",
+      )?.id ||
+      visibleStories()[0]?.id ||
+      null
+    );
   }
 
   function storyHref(storyId = null) {
@@ -190,12 +236,19 @@ import {
   }
 
   function childrenOf(storyId, includeDrafts = false) {
-    return data.stories.filter((story) => story.parentId === storyId && (includeDrafts || story.status !== "draft"));
+    return data.stories.filter(
+      (story) =>
+        story.parentId === storyId &&
+        (includeDrafts || story.status !== "draft"),
+    );
   }
 
   function siblingsOf(story) {
     if (!story.parentId) return [story];
-    return data.stories.filter((candidate) => candidate.parentId === story.parentId && candidate.status !== "draft");
+    return data.stories.filter(
+      (candidate) =>
+        candidate.parentId === story.parentId && candidate.status !== "draft",
+    );
   }
 
   function getAncestors(story) {
@@ -239,12 +292,19 @@ import {
     const date = new Date(value);
     if (!value || Number.isNaN(date.getTime())) return "Recently";
     const seconds = Math.round((date.getTime() - Date.now()) / 1000);
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const formatter = new Intl.RelativeTimeFormat(undefined, {
+      numeric: "auto",
+    });
     if (Math.abs(seconds) < 60) return "just now";
-    if (Math.abs(seconds) < 3600) return formatter.format(Math.round(seconds / 60), "minute");
-    if (Math.abs(seconds) < 86400) return formatter.format(Math.round(seconds / 3600), "hour");
-    if (Math.abs(seconds) < 604800) return formatter.format(Math.round(seconds / 86400), "day");
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+    if (Math.abs(seconds) < 3600)
+      return formatter.format(Math.round(seconds / 60), "minute");
+    if (Math.abs(seconds) < 86400)
+      return formatter.format(Math.round(seconds / 3600), "hour");
+    if (Math.abs(seconds) < 604800)
+      return formatter.format(Math.round(seconds / 86400), "day");
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+      date,
+    );
   }
 
   function formatStatus(status) {
@@ -255,10 +315,13 @@ import {
     const raw = location.hash.replace(/^#\/?/, "");
     const parts = raw.split("/").filter(Boolean);
     if (!parts.length) return { name: "reader", storyId: null };
-    if (parts[0] === "story") return { name: "reader", storyId: parts[1] || null };
-    if (parts[0] === "write" && parts[1] === "continue") return { name: "write", mode: "continue", storyId: parts[2] };
+    if (parts[0] === "story")
+      return { name: "reader", storyId: parts[1] || null };
+    if (parts[0] === "write" && parts[1] === "continue")
+      return { name: "write", mode: "continue", storyId: parts[2] };
     if (parts[0] === "write") return { name: "write", mode: "start" };
-    if (parts[0] === "edit") return { name: "write", mode: "edit", storyId: parts[1] };
+    if (parts[0] === "edit")
+      return { name: "write", mode: "edit", storyId: parts[1] };
     if (parts[0] === "profile") return { name: "profile" };
     if (parts[0] === "inbox") return { name: "inbox" };
     if (parts[0] === "admin") return { name: "admin" };
@@ -276,8 +339,10 @@ import {
 
   function renderHeader(route) {
     const user = currentUser();
-    const unreadCount = user ? notificationsForUser(user.id).filter((item) => !item.read).length : 0;
-    const navIsActive = (name) => route.name === name ? " active" : "";
+    const unreadCount = user
+      ? notificationsForUser(user.id).filter((item) => !item.read).length
+      : 0;
+    const navIsActive = (name) => (route.name === name ? " active" : "");
     header.innerHTML = `
       <div class="header-inner">
         <a class="brand" href="${homeHref()}" aria-label="Branchline home">
@@ -292,15 +357,19 @@ import {
         </nav>
         <div class="header-actions">
           <button class="icon-button search-trigger" type="button" data-action="search" aria-label="Search stories">${icon("search")}</button>
-          ${user ? `
+          ${
+            user
+              ? `
             <button class="icon-button" type="button" data-action="open-inbox" aria-label="Inbox${unreadCount ? `, ${unreadCount} unread` : ""}">
               ${icon("bell")}
               ${unreadCount ? `<span class="notification-badge">${unreadCount > 9 ? "9+" : unreadCount}</span>` : ""}
             </button>
             <button class="avatar-button" type="button" data-action="user-menu" aria-label="Open account menu">${avatar(user, "sm")}</button>
-          ` : `
+          `
+              : `
             <button class="button button-primary" type="button" data-action="sign-in">Sign in</button>
-          `}
+          `
+          }
         </div>
       </div>
     `;
@@ -333,9 +402,15 @@ import {
     }, 3400);
   }
 
-  function backendMessage(error, fallback = "Branchline could not reach the shared service. Try again.") {
-    if (error instanceof BranchlineBackendError && error.message) return error.message;
-    return typeof error?.message === "string" && error.message ? error.message : fallback;
+  function backendMessage(
+    error,
+    fallback = "Branchline could not reach the shared service. Try again.",
+  ) {
+    if (error instanceof BranchlineBackendError && error.message)
+      return error.message;
+    return typeof error?.message === "string" && error.message
+      ? error.message
+      : fallback;
   }
 
   function renderBackendState() {
@@ -362,18 +437,34 @@ import {
       const cachedComments = data.comments;
       const cachedUsers = data.users;
       const nextData = normalizeBootstrap(payload);
-      const activeStoryIds = new Set(nextData.stories.filter((story) => story.status === "active").map((story) => story.id));
-      nextData.comments = cachedComments.filter((comment) => activeStoryIds.has(comment.storyId));
-      const commentAuthorIds = new Set(nextData.comments.map((comment) => comment.authorId).filter(Boolean));
+      const activeStoryIds = new Set(
+        nextData.stories
+          .filter((story) => story.status === "active")
+          .map((story) => story.id),
+      );
+      nextData.comments = cachedComments.filter((comment) =>
+        activeStoryIds.has(comment.storyId),
+      );
+      const commentAuthorIds = new Set(
+        nextData.comments.map((comment) => comment.authorId).filter(Boolean),
+      );
       cachedUsers.forEach((profile) => {
-        if (commentAuthorIds.has(profile.id) && !nextData.users.some((candidate) => candidate.id === profile.id)) {
+        if (
+          commentAuthorIds.has(profile.id) &&
+          !nextData.users.some((candidate) => candidate.id === profile.id)
+        ) {
           nextData.users.push(profile);
         }
       });
       data = nextData;
       const firebaseUser = currentFirebaseUser();
-      session = { userId: firebaseUser?.uid || payload.currentUser?.id || null };
-      if (payload.currentUser && !data.users.some((user) => user.id === payload.currentUser.id)) {
+      session = {
+        userId: firebaseUser?.uid || payload.currentUser?.id || null,
+      };
+      if (
+        payload.currentUser &&
+        !data.users.some((user) => user.id === payload.currentUser.id)
+      ) {
         data.users.push(payload.currentUser);
       }
       backendReady = true;
@@ -433,7 +524,10 @@ import {
   async function bootBackend() {
     if (!isFirebaseConfigured()) {
       backendLoading = false;
-      backendError = new BranchlineBackendError("backend/not-configured", "Firebase is not configured for this Branchline build.");
+      backendError = new BranchlineBackendError(
+        "backend/not-configured",
+        "Firebase is not configured for this Branchline build.",
+      );
       renderBackendState();
       return;
     }
@@ -486,7 +580,14 @@ import {
     if (!commentsDialog.open) document.body.classList.remove("dialog-open");
   }
 
-  function openDialog({ title, subtitle = "", body = "", actions = "", wide = false, onReady = null }) {
+  function openDialog({
+    title,
+    subtitle = "",
+    body = "",
+    actions = "",
+    wide = false,
+    onReady = null,
+  }) {
     appDialog.classList.toggle("wide-dialog", wide);
     appDialog.innerHTML = `
       <div class="dialog-shell">
@@ -506,7 +607,10 @@ import {
     if (onReady) requestAnimationFrame(() => onReady(appDialog));
   }
 
-  function openAuthModal(reason = "Join the story to keep writing.", afterAuth = null) {
+  function openAuthModal(
+    reason = "Join the story to keep writing.",
+    afterAuth = null,
+  ) {
     pendingAuthAction = afterAuth;
     openDialog({
       title: "Sign in to Branchline",
@@ -526,7 +630,7 @@ import {
           </div>
           <p class="auth-terms">Firebase securely handles sign-in. Branchline stores only the profile needed for your writing account.</p>
         </div>
-      `
+      `,
     });
   }
 
@@ -545,14 +649,16 @@ import {
       const firebaseUser = await signInWithFirebase(provider);
       await callBackend("ensureProfile", {
         name: firebaseUser.displayName || "Branchline member",
-        avatarUrl: firebaseUser.photoURL || ""
+        avatarUrl: firebaseUser.photoURL || "",
       });
       await refreshSharedData({ render: false });
       closeAppDialog();
       const action = pendingAuthAction;
       pendingAuthAction = null;
       renderApp();
-      showToast(`Signed in with ${provider === "facebook" ? "Facebook" : "Google"}.`);
+      showToast(
+        `Signed in with ${provider === "facebook" ? "Facebook" : "Google"}.`,
+      );
       if (action) window.setTimeout(action, 80);
     } catch (error) {
       showToast(backendMessage(error), "info");
@@ -594,7 +700,7 @@ import {
             <button class="user-menu-link danger" type="button" data-action="sign-out">${icon("logout")} Sign out</button>
           </div>
         </div>
-      `
+      `,
     });
   }
 
@@ -602,13 +708,15 @@ import {
     const isGuidelines = type === "guidelines";
     openDialog({
       title: isGuidelines ? "Community guidelines" : "How Branchline works",
-      body: isGuidelines ? `
+      body: isGuidelines
+        ? `
         <p>Build on each other with care. Keep continuations relevant to the story, credit the branch you inherit, and avoid harassment, hate, explicit exploitation, or personal information.</p>
         <p>Use the visible <strong>Report</strong> control for content that breaks these rules. A fourth distinct report automatically hides the chapter for administrator review; the branch itself stays connected.</p>
-      ` : `
+      `
+        : `
         <p>Every chapter is a node in a story tree. Scroll down to follow a continuation, scroll up to return to its parent, and use the left and right controls to compare alternate versions written from the same chapter.</p>
         <p>Removed chapters become placeholders instead of disappearing, so the stories written after them remain discoverable. Guests can read and share; signed-in members can write, react, comment, and report.</p>
-      `
+      `,
     });
   }
 
@@ -634,7 +742,10 @@ import {
       renderAdmin();
     }
 
-    document.title = route.name === "reader" ? "Branchline — Every story can become many" : `${route.name.charAt(0).toUpperCase() + route.name.slice(1)} — Branchline`;
+    document.title =
+      route.name === "reader"
+        ? "Branchline — Every story can become many"
+        : `${route.name.charAt(0).toUpperCase() + route.name.slice(1)} — Branchline`;
   }
 
   function renderLineage(story) {
@@ -644,14 +755,18 @@ import {
         <div class="rail-card-inner">
           <p class="rail-title">Your path</p>
           <ol class="lineage-list">
-            ${path.map((item, index) => `
+            ${path
+              .map(
+                (item, index) => `
               <li class="lineage-item ${item.id === story.id ? "current" : ""}">
                 <span class="lineage-node"></span>
                 <button class="lineage-link" type="button" data-story-id="${item.id}" ${item.id === story.id ? 'aria-current="page"' : ""}>
                   <span class="sr-only">Level ${index}: </span>${escapeHTML(item.status === "active" ? item.title : item.status === "reported" ? "Reported chapter" : "Deleted chapter")}
                 </button>
               </li>
-            `).join("")}
+            `,
+              )
+              .join("")}
           </ol>
         </div>
       </div>
@@ -694,7 +809,9 @@ import {
           <p>${children.length} ${children.length === 1 ? "continuation" : "different directions"}</p>
         </div>
         <ul class="mini-branch-list">
-          ${children.map((child) => `
+          ${children
+            .map(
+              (child) => `
             <li class="mini-branch-item">
               <button class="mini-branch-button ${child.id === selectedId ? "selected" : ""}" type="button" data-select-child="${child.id}" data-parent-id="${story.id}">
                 <span class="mini-branch-dot"></span>
@@ -704,17 +821,23 @@ import {
                 </span>
               </button>
             </li>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </ul>
       </div>
-      ${story.status === "active" ? `
+      ${
+        story.status === "active"
+          ? `
         <div class="rail-card rail-start-card">
           <div class="branch-art">${icon("pen")}</div>
           <h3>Take it somewhere new.</h3>
           <p>Your continuation becomes another branch at the next level.</p>
           <button class="button" type="button" data-action="continue-story" data-story-id="${story.id}">Write a version</button>
         </div>
-      ` : ""}
+      `
+          : ""
+      }
     `;
   }
 
@@ -742,9 +865,13 @@ import {
     const user = currentUser();
     const isLiked = Boolean(user && story.likedBy.includes(user.id));
     const isActive = story.status === "active";
-    const versionLabel = level === 0 ? `Root ${siblingIndex + 1} of ${siblings.length}` : `Version ${siblingIndex + 1} of ${siblings.length}`;
+    const versionLabel =
+      level === 0
+        ? `Root ${siblingIndex + 1} of ${siblings.length}`
+        : `Version ${siblingIndex + 1} of ${siblings.length}`;
     const parent = story.parentId ? storyById(story.parentId) : null;
-    const parentLabel = parent?.status === "active" ? parent.title : "Unavailable chapter";
+    const parentLabel =
+      parent?.status === "active" ? parent.title : "Unavailable chapter";
 
     return `
       <article class="story-card" id="story-card" aria-labelledby="${isActive ? "story-title" : "tombstone-title"}" tabindex="0">
@@ -761,7 +888,9 @@ import {
           </div>
         </div>
 
-        ${isActive ? `
+        ${
+          isActive
+            ? `
           <div class="story-card-content">
             <div class="story-topline">
               <div class="author-line">
@@ -788,24 +917,31 @@ import {
               ${icon("pen")}<span class="action-label">Continue</span>
             </button>
           </div>
-        ` : `
+        `
+            : `
           ${renderTombstone(story)}
           <div class="story-card-footer" role="group" aria-label="Story actions">
             <button class="action-button" type="button" data-action="share-story" data-story-id="${story.id}" aria-label="Share this branch">${icon("share")}<span class="action-label">Share branch</span></button>
             ${children.length ? `<span class="action-button" aria-hidden="true">${icon("branch")}<span class="action-label">Path preserved</span></span>` : ""}
           </div>
-        `}
+        `
+        }
       </article>
     `;
   }
 
   function renderRootGrid() {
-    const roots = data.stories.filter((story) => story.parentId === null && story.status !== "draft");
-    return roots.map((story) => {
-      const author = userById(story.authorId);
-      const isActive = story.status === "active";
-      const bodyPreview = isActive ? story.body.split(/\n\s*\n/)[0] : "This root chapter is currently unavailable, but its story tree remains accessible.";
-      return `
+    const roots = data.stories.filter(
+      (story) => story.parentId === null && story.status !== "draft",
+    );
+    return roots
+      .map((story) => {
+        const author = userById(story.authorId);
+        const isActive = story.status === "active";
+        const bodyPreview = isActive
+          ? story.body.split(/\n\s*\n/)[0]
+          : "This root chapter is currently unavailable, but its story tree remains accessible.";
+        return `
         <article class="root-card" tabindex="0" role="link" data-story-id="${story.id}" aria-label="Read ${escapeHTML(isActive ? story.title : "this unavailable story")}">
           <span class="root-card-top"><span>${isActive ? escapeHTML(story.genre) : "Unavailable"}</span><span>${isActive ? `${story.likes.toLocaleString()} likes` : "Path preserved"}</span></span>
           <h3>${escapeHTML(isActive ? story.title : story.status === "reported" ? "Reported story" : "Deleted story")}</h3>
@@ -816,7 +952,8 @@ import {
           </span>
         </article>
       `;
-    }).join("");
+      })
+      .join("");
   }
 
   function renderReader(requestedStoryId) {
@@ -877,21 +1014,27 @@ import {
               ${renderStoryCard(story)}
 
               <div class="vertical-nav">
-                ${children.length ? `
+                ${
+                  children.length
+                    ? `
                   <button class="branch-choice-button" type="button" data-action="pick-branch" data-story-id="${story.id}">
                     ${icon("chevronDown")}
                     <span>${children.length === 1 ? `Continue to ${escapeHTML(selectedChild?.status === "active" ? selectedChild.title : "the next chapter")}` : `Choose from ${children.length} continuations`}</span>
                     <span class="branch-count">${children.length}</span>
                   </button>
-                ` : story.status === "active" ? `
+                `
+                    : story.status === "active"
+                      ? `
                   <button class="vertical-nav-button" type="button" data-action="continue-story" data-story-id="${story.id}">
                     ${icon("pen")} End of this branch · write what happens next
                   </button>
-                ` : `
+                `
+                      : `
                   <div class="vertical-nav-button disabled" aria-label="No later chapter is connected">
                     ${icon("branch")} No later chapter is connected
                   </div>
-                `}
+                `
+                }
               </div>
               <p class="stage-caption">Use the visible controls or arrow keys. Scroll navigation activates only when the full chapter fits on screen.</p>
             </div>
@@ -942,12 +1085,15 @@ import {
     let target = null;
 
     if (direction === "left" && index > 0) target = siblings[index - 1];
-    if (direction === "right" && index < siblings.length - 1) target = siblings[index + 1];
-    if (direction === "up" && story.parentId) target = storyById(story.parentId);
+    if (direction === "right" && index < siblings.length - 1)
+      target = siblings[index + 1];
+    if (direction === "up" && story.parentId)
+      target = storyById(story.parentId);
     if (direction === "down") {
       const children = childrenOf(story.id);
       const preferred = preferredChildByParent[story.id];
-      target = children.find((item) => item.id === preferred) || children[0] || null;
+      target =
+        children.find((item) => item.id === preferred) || children[0] || null;
     }
 
     if (target) {
@@ -959,40 +1105,65 @@ import {
       if (card) card.classList.add("is-transitioning");
       window.setTimeout(() => routeTo(`story/${target.id}`), 110);
     } else if (direction === "down" && story.status === "active") {
-      requireAuth(() => routeTo(`write/continue/${story.id}`), "Sign in to continue this branch.");
+      requireAuth(
+        () => routeTo(`write/continue/${story.id}`),
+        "Sign in to continue this branch.",
+      );
     }
   }
 
   function bindReaderGestures() {
     const card = document.getElementById("story-card");
     if (!card) return;
-    const cardFitsViewport = () => card.scrollHeight <= Math.max(520, window.innerHeight - 120);
+    const cardFitsViewport = () =>
+      card.scrollHeight <= Math.max(520, window.innerHeight - 120);
 
-    card.addEventListener("wheel", (event) => {
-      if (appDialog.open || commentsDialog.open || wheelLocked || Math.abs(event.deltaY) < 46) return;
-      if (event.target.closest("button, input, textarea, select")) return;
-      if (!cardFitsViewport()) return;
-      event.preventDefault();
-      wheelLocked = true;
-      navigateStory(event.deltaY > 0 ? "down" : "up");
-      window.setTimeout(() => { wheelLocked = false; }, 760);
-    }, { passive: false });
+    card.addEventListener(
+      "wheel",
+      (event) => {
+        if (
+          appDialog.open ||
+          commentsDialog.open ||
+          wheelLocked ||
+          Math.abs(event.deltaY) < 46
+        )
+          return;
+        if (event.target.closest("button, input, textarea, select")) return;
+        if (!cardFitsViewport()) return;
+        event.preventDefault();
+        wheelLocked = true;
+        navigateStory(event.deltaY > 0 ? "down" : "up");
+        window.setTimeout(() => {
+          wheelLocked = false;
+        }, 760);
+      },
+      { passive: false },
+    );
 
-    card.addEventListener("touchstart", (event) => {
-      const touch = event.changedTouches[0];
-      touchStart = { x: touch.clientX, y: touch.clientY };
-    }, { passive: true });
+    card.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = event.changedTouches[0];
+        touchStart = { x: touch.clientX, y: touch.clientY };
+      },
+      { passive: true },
+    );
 
-    card.addEventListener("touchend", (event) => {
-      if (!touchStart) return;
-      const touch = event.changedTouches[0];
-      const dx = touch.clientX - touchStart.x;
-      const dy = touch.clientY - touchStart.y;
-      touchStart = null;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < 72) return;
-      if (Math.abs(dx) > Math.abs(dy)) navigateStory(dx > 0 ? "left" : "right");
-      else if (cardFitsViewport()) navigateStory(dy > 0 ? "up" : "down");
-    }, { passive: true });
+    card.addEventListener(
+      "touchend",
+      (event) => {
+        if (!touchStart) return;
+        const touch = event.changedTouches[0];
+        const dx = touch.clientX - touchStart.x;
+        const dy = touch.clientY - touchStart.y;
+        touchStart = null;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 72) return;
+        if (Math.abs(dx) > Math.abs(dy))
+          navigateStory(dx > 0 ? "left" : "right");
+        else if (cardFitsViewport()) navigateStory(dy > 0 ? "up" : "down");
+      },
+      { passive: true },
+    );
   }
 
   function openBranchPicker(storyId) {
@@ -1002,11 +1173,15 @@ import {
     const selected = preferredChildByParent[storyId] || children[0].id;
     openDialog({
       title: "Choose the next branch",
-      subtitle: story.status === "active" ? `All of these continue “${story.title}.”` : "The previous chapter is unavailable, but its later branches remain connected.",
+      subtitle:
+        story.status === "active"
+          ? `All of these continue “${story.title}.”`
+          : "The previous chapter is unavailable, but its later branches remain connected.",
       body: `<div class="branch-picker-list">
-        ${children.map((child, index) => {
-          const author = userById(child.authorId);
-          return `
+        ${children
+          .map((child, index) => {
+            const author = userById(child.authorId);
+            return `
             <button class="branch-option ${child.id === selected ? "selected" : ""}" type="button" data-choose-branch="${child.id}" data-parent-id="${storyId}">
               <span class="branch-number">${index + 1}</span>
               <span class="branch-option-copy">
@@ -1016,9 +1191,10 @@ import {
               ${icon("chevronRight")}
             </button>
           `;
-        }).join("")}
+          })
+          .join("")}
       </div>`,
-      wide: true
+      wide: true,
     });
   }
 
@@ -1053,7 +1229,7 @@ import {
           <button class="button button-primary" type="button" data-action="copy-share-link">${icon("copy")} Copy link</button>
         </div>
         ${navigator.share ? `<button class="button button-secondary" style="width:100%;margin-top:10px" type="button" data-action="native-share" data-story-id="${story.id}">${icon("share")} More sharing options</button>` : ""}
-      `
+      `,
     });
   }
 
@@ -1077,10 +1253,11 @@ import {
       await navigator.share({
         title: story.status === "active" ? story.title : "A Branchline story",
         text: "Read this branch and choose where the story goes next.",
-        url: `${location.origin}${location.pathname}#story/${story.id}`
+        url: `${location.origin}${location.pathname}#story/${story.id}`,
       });
     } catch (error) {
-      if (error?.name !== "AbortError") showToast("Sharing was not available.", "info");
+      if (error?.name !== "AbortError")
+        showToast("Sharing was not available.", "info");
     }
   }
 
@@ -1103,19 +1280,29 @@ import {
       actions: `
         <button class="button button-secondary" type="button" data-action="close-dialog">Cancel</button>
         <button class="button button-danger" type="button" data-action="confirm-report" data-story-id="${story.id}">${icon("flag")} Confirm report</button>
-      `
+      `,
     });
   }
 
   async function confirmReport(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
-    if (!story || !user || story.status !== "active" || story.reportedBy.includes(user.id)) return;
+    if (
+      !story ||
+      !user ||
+      story.status !== "active" ||
+      story.reportedBy.includes(user.id)
+    )
+      return;
     const result = await runMutation("reportStory", { storyId });
     if (!result) return;
     closeAppDialog();
     renderApp();
-    showToast(result.status === "reported" ? "Report recorded. This chapter is now hidden for review." : "Report recorded. Thank you for letting us know.");
+    showToast(
+      result.status === "reported"
+        ? "Report recorded. This chapter is now hidden for review."
+        : "Report recorded. Thank you for letting us know.",
+    );
   }
 
   function renderComment(comment, isReply = false) {
@@ -1123,7 +1310,9 @@ import {
     const user = currentUser();
     const deleted = comment.status !== "active";
     const liked = Boolean(user && comment.likedBy.includes(user.id));
-    const replyTo = comment.replyToCommentId ? data.comments.find((item) => item.id === comment.replyToCommentId) : null;
+    const replyTo = comment.replyToCommentId
+      ? data.comments.find((item) => item.id === comment.replyToCommentId)
+      : null;
     const replyToUser = replyTo ? userById(replyTo.authorId) : null;
     return `
       <div class="comment-row ${deleted ? "deleted-comment" : ""}" data-comment-id="${comment.id}">
@@ -1131,10 +1320,14 @@ import {
         <div class="comment-content">
           <div class="comment-meta"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(formatDate(comment.createdAt))}</span></div>
           <p class="comment-text">${deleted ? "This comment was removed with its author's account." : `${isReply && replyToUser ? `<span class="replying-to">@${escapeHTML(replyToUser.name.split(" ")[0])}</span> ` : ""}${escapeHTML(comment.text)}`}</p>
-          ${deleted ? "" : `<div class="comment-actions">
+          ${
+            deleted
+              ? ""
+              : `<div class="comment-actions">
             <button class="text-button ${liked ? "active" : ""}" type="button" data-comment-like="${comment.id}" aria-pressed="${liked}" aria-label="${liked ? "Unlike" : "Like"} this comment, ${comment.likes} ${comment.likes === 1 ? "like" : "likes"}">${icon("thumbsUp")} ${comment.likes}</button>
             <button class="text-button" type="button" data-comment-reply="${comment.id}">${icon("reply")} Reply</button>
-          </div>`}
+          </div>`
+          }
         </div>
       </div>
     `;
@@ -1143,21 +1336,26 @@ import {
   function renderCommentsBody(storyId) {
     const story = storyById(storyId);
     if (!story) return "";
-    const comments = data.comments.filter((comment) => (
-      comment.storyId === storyId
-      && (comment.status === "active" || comment.deletionSource === "account")
-    ));
+    const comments = data.comments.filter(
+      (comment) =>
+        comment.storyId === storyId &&
+        (comment.status === "active" || comment.deletionSource === "account"),
+    );
     const roots = comments.filter((comment) => !comment.parentCommentId);
     const user = currentUser();
     const loadState = commentLoadInFlight.get(storyId);
     const loading = Boolean(loadState);
     const replaceComposer = Boolean(loadState?.replaceComposer);
     const nextCursor = commentCursorByStory.get(storyId);
-    const composer = user && replaceComposer ? `
+    const composer =
+      user && replaceComposer
+        ? `
       <div class="comment-composer" aria-live="polite">
         <div class="guest-comment-gate"><p>Loading the conversation…</p></div>
       </div>
-    ` : user ? `
+    `
+        : user
+          ? `
       <form class="comment-composer" id="comment-form" data-story-id="${storyId}">
         <div class="composer-row">
           ${avatar(user, "sm")}
@@ -1168,7 +1366,8 @@ import {
           </div>
         </div>
       </form>
-    ` : `
+    `
+          : `
       <div class="comment-composer">
         <div class="guest-comment-gate"><p>Sign in to join the conversation.</p><button class="button button-primary button-small" type="button" data-action="comment-sign-in">Sign in</button></div>
       </div>
@@ -1182,31 +1381,54 @@ import {
         </div>
         ${composer}
         <div class="comments-scroll" tabindex="-1">
-          ${roots.length ? roots.map((comment) => {
-            const replies = comments.filter((reply) => reply.parentCommentId === comment.id);
-            const expanded = expandedReplyThreads.has(comment.id);
-            const target = replyTargetId ? data.comments.find((item) => item.id === replyTargetId) : null;
-            const replyBelongsHere = target && (target.id === comment.id || target.parentCommentId === comment.id);
-            return `
+          ${
+            roots.length
+              ? roots
+                  .map((comment) => {
+                    const replies = comments.filter(
+                      (reply) => reply.parentCommentId === comment.id,
+                    );
+                    const expanded = expandedReplyThreads.has(comment.id);
+                    const target = replyTargetId
+                      ? data.comments.find((item) => item.id === replyTargetId)
+                      : null;
+                    const replyBelongsHere =
+                      target &&
+                      (target.id === comment.id ||
+                        target.parentCommentId === comment.id);
+                    return `
               <article class="comment-thread">
                 ${renderComment(comment)}
-                ${replies.length ? `
+                ${
+                  replies.length
+                    ? `
                   <button class="text-button view-replies" type="button" data-toggle-replies="${comment.id}">${icon(expanded ? "chevronUp" : "chevronDown")} ${expanded ? "Hide" : "View"} ${replies.length} ${replies.length === 1 ? "reply" : "replies"}</button>
                   ${expanded ? `<div class="reply-list">${replies.map((reply) => renderComment(reply, true)).join("")}</div>` : ""}
-                ` : ""}
-                ${user && replyBelongsHere ? `
+                `
+                    : ""
+                }
+                ${
+                  user && replyBelongsHere
+                    ? `
                   <form class="inline-reply-form" data-root-comment-id="${comment.id}" data-reply-to-id="${target.id}">
                     <textarea name="reply" maxlength="600" required aria-label="Reply to ${escapeHTML(userById(target.authorId).name)}" placeholder="Reply to ${escapeHTML(userById(target.authorId).name.split(" ")[0])}…">${escapeHTML(replyDraftByComment.get(target.id) || "")}</textarea>
                     <button class="button button-primary button-small" type="submit">Reply</button>
                   </form>
-                ` : ""}
+                `
+                    : ""
+                }
               </article>
             `;
-          }).join("") : loading ? `
+                  })
+                  .join("")
+              : loading
+                ? `
             <div class="empty-comments" aria-live="polite">${icon("clock")}<p>Loading comments…</p></div>
-          ` : `
+          `
+                : `
             <div class="empty-comments">${icon("message")}<p>No comments yet. Start the conversation.</p></div>
-          `}
+          `
+          }
           ${nextCursor ? `<button class="button button-secondary" type="button" data-action="load-more-comments" data-story-id="${storyId}" ${loading ? "disabled" : ""}>${loading ? "Loading…" : "Load more comments"}</button>` : ""}
         </div>
       </div>
@@ -1227,25 +1449,37 @@ import {
     if (!commentsDialog.open) return null;
     const active = document.activeElement;
     const replyForm = active?.closest?.(".inline-reply-form");
-    const commentDraft = commentsDialog.querySelector("#comment-text")?.value || "";
-    const replyDrafts = [...commentsDialog.querySelectorAll(".inline-reply-form")].map((form) => ({
+    const commentDraft =
+      commentsDialog.querySelector("#comment-text")?.value || "";
+    const replyDrafts = [
+      ...commentsDialog.querySelectorAll(".inline-reply-form"),
+    ].map((form) => ({
       replyToId: form.dataset.replyToId,
-      value: form.querySelector("textarea")?.value || ""
+      value: form.querySelector("textarea")?.value || "",
     }));
-    if (activeCommentsStoryId) commentDraftByStory.set(activeCommentsStoryId, commentDraft);
-    replyDrafts.forEach(({ replyToId, value }) => replyDraftByComment.set(replyToId, value));
+    if (activeCommentsStoryId)
+      commentDraftByStory.set(activeCommentsStoryId, commentDraft);
+    replyDrafts.forEach(({ replyToId, value }) =>
+      replyDraftByComment.set(replyToId, value),
+    );
     let focus = null;
     if (active?.id === "comment-text") focus = { kind: "comment" };
-    else if (active?.matches?.('[data-action="load-more-comments"]')) focus = { kind: "load-more" };
-    else if (active?.matches?.("[data-comment-like]")) focus = { kind: "comment-like", id: active.dataset.commentLike };
-    else if (active?.matches?.("[data-comment-reply]")) focus = { kind: "comment-reply", id: active.dataset.commentReply };
-    else if (active?.matches?.("[data-toggle-replies]")) focus = { kind: "toggle-replies", id: active.dataset.toggleReplies };
-    else if (replyForm) focus = { kind: "reply", replyToId: replyForm.dataset.replyToId };
+    else if (active?.matches?.('[data-action="load-more-comments"]'))
+      focus = { kind: "load-more" };
+    else if (active?.matches?.("[data-comment-like]"))
+      focus = { kind: "comment-like", id: active.dataset.commentLike };
+    else if (active?.matches?.("[data-comment-reply]"))
+      focus = { kind: "comment-reply", id: active.dataset.commentReply };
+    else if (active?.matches?.("[data-toggle-replies]"))
+      focus = { kind: "toggle-replies", id: active.dataset.toggleReplies };
+    else if (replyForm)
+      focus = { kind: "reply", replyToId: replyForm.dataset.replyToId };
     return {
-      scrollTop: commentsDialog.querySelector(".comments-scroll")?.scrollTop || 0,
+      scrollTop:
+        commentsDialog.querySelector(".comments-scroll")?.scrollTop || 0,
       commentDraft,
       replyDrafts,
-      focus
+      focus,
     };
   }
 
@@ -1254,26 +1488,38 @@ import {
     const commentField = commentsDialog.querySelector("#comment-text");
     if (commentField) commentField.value = state.commentDraft;
     state.replyDrafts.forEach(({ replyToId, value }) => {
-      const field = commentsDialog.querySelector(`.inline-reply-form[data-reply-to-id="${replyToId}"] textarea`);
+      const field = commentsDialog.querySelector(
+        `.inline-reply-form[data-reply-to-id="${replyToId}"] textarea`,
+      );
       if (field) field.value = value;
     });
     const scroll = commentsDialog.querySelector(".comments-scroll");
     let focusTarget = null;
     if (state.focus?.kind === "comment") focusTarget = commentField;
     if (state.focus?.kind === "reply") {
-      focusTarget = commentsDialog.querySelector(`.inline-reply-form[data-reply-to-id="${state.focus.replyToId}"] textarea`);
+      focusTarget = commentsDialog.querySelector(
+        `.inline-reply-form[data-reply-to-id="${state.focus.replyToId}"] textarea`,
+      );
     }
     if (state.focus?.kind === "load-more") {
-      focusTarget = commentsDialog.querySelector('[data-action="load-more-comments"]') || scroll;
+      focusTarget =
+        commentsDialog.querySelector('[data-action="load-more-comments"]') ||
+        scroll;
     }
     if (state.focus?.kind === "comment-like") {
-      focusTarget = commentsDialog.querySelector(`[data-comment-like="${state.focus.id}"]`);
+      focusTarget = commentsDialog.querySelector(
+        `[data-comment-like="${state.focus.id}"]`,
+      );
     }
     if (state.focus?.kind === "comment-reply") {
-      focusTarget = commentsDialog.querySelector(`[data-comment-reply="${state.focus.id}"]`);
+      focusTarget = commentsDialog.querySelector(
+        `[data-comment-reply="${state.focus.id}"]`,
+      );
     }
     if (state.focus?.kind === "toggle-replies") {
-      focusTarget = commentsDialog.querySelector(`[data-toggle-replies="${state.focus.id}"]`);
+      focusTarget = commentsDialog.querySelector(
+        `[data-toggle-replies="${state.focus.id}"]`,
+      );
     }
     focusTarget?.focus({ preventScroll: true });
     if (scroll) scroll.scrollTop = state.scrollTop;
@@ -1287,12 +1533,17 @@ import {
     const cursor = reset ? null : commentCursorByStory.get(storyId);
     if (!reset && !cursor) return false;
     const uiState = preserveUi ? captureCommentsUi() : null;
-    const loadToken = { id: Symbol(storyId), replaceComposer: reset && !preserveUi };
+    const loadToken = {
+      id: Symbol(storyId),
+      replaceComposer: reset && !preserveUi,
+    };
     commentLoadInFlight.set(storyId, loadToken);
     if (loadToken.replaceComposer) {
       refreshComments();
     } else {
-      const button = commentsDialog.querySelector('[data-action="load-more-comments"]');
+      const button = commentsDialog.querySelector(
+        '[data-action="load-more-comments"]',
+      );
       if (button) {
         button.disabled = true;
         button.textContent = "Loading…";
@@ -1301,26 +1552,38 @@ import {
     try {
       const result = await callBackend("getStoryComments", {
         storyId,
-        ...(cursor ? { cursor } : {})
+        ...(cursor ? { cursor } : {}),
       });
       if (commentLoadInFlight.get(storyId) !== loadToken) return false;
-      if (reset) data.comments = data.comments.filter((comment) => comment.storyId !== storyId);
+      if (reset)
+        data.comments = data.comments.filter(
+          (comment) => comment.storyId !== storyId,
+        );
       for (const comment of result.comments || []) {
         comment.likedBy = Array.isArray(comment.likedBy) ? comment.likedBy : [];
         comment.likes = Number(comment.likes || 0);
-        const index = data.comments.findIndex((candidate) => candidate.id === comment.id);
+        const index = data.comments.findIndex(
+          (candidate) => candidate.id === comment.id,
+        );
         if (index >= 0) data.comments[index] = comment;
         else data.comments.push(comment);
       }
       for (const profile of result.users || []) {
-        const index = data.users.findIndex((candidate) => candidate.id === profile.id);
-        if (index >= 0) data.users[index] = { ...data.users[index], ...profile };
+        const index = data.users.findIndex(
+          (candidate) => candidate.id === profile.id,
+        );
+        if (index >= 0)
+          data.users[index] = { ...data.users[index], ...profile };
         else data.users.push({ ...profile, role: "user" });
       }
       commentCursorByStory.set(storyId, result.nextCursor || null);
       return true;
     } catch (error) {
-      if (!silent) showToast(backendMessage(error, "Comments could not be loaded. Try again."), "info");
+      if (!silent)
+        showToast(
+          backendMessage(error, "Comments could not be loaded. Try again."),
+          "info",
+        );
       return false;
     } finally {
       if (commentLoadInFlight.get(storyId) === loadToken) {
@@ -1348,9 +1611,11 @@ import {
     const normalized = {
       ...comment,
       likedBy: Array.isArray(comment.likedBy) ? comment.likedBy : [],
-      likes: Number(comment.likes || 0)
+      likes: Number(comment.likes || 0),
     };
-    const index = data.comments.findIndex((candidate) => candidate.id === normalized.id);
+    const index = data.comments.findIndex(
+      (candidate) => candidate.id === normalized.id,
+    );
     if (index >= 0) data.comments[index] = normalized;
     else data.comments.push(normalized);
     return normalized;
@@ -1366,7 +1631,11 @@ import {
       if (!result) return;
       comment.likes = Number(result.likes || 0);
       comment.likedBy = result.liked ? [user.id] : [];
-      await loadStoryComments(storyId, { reset: true, preserveUi: true, silent: true });
+      await loadStoryComments(storyId, {
+        reset: true,
+        preserveUi: true,
+        silent: true,
+      });
       refreshComments();
     }, "Sign in to like comments.");
   }
@@ -1381,7 +1650,9 @@ import {
       expandedReplyThreads.add(rootId);
       refreshComments();
       restoreCommentsUi(uiState);
-      requestAnimationFrame(() => commentsDialog.querySelector(".inline-reply-form textarea")?.focus());
+      requestAnimationFrame(() =>
+        commentsDialog.querySelector(".inline-reply-form textarea")?.focus(),
+      );
     }, "Sign in to reply to this comment.");
   }
 
@@ -1389,7 +1660,10 @@ import {
     const user = currentUser();
     const story = storyById(storyId);
     if (!user || !story || story.status !== "active" || !text.trim()) return;
-    const result = await runMutation("addComment", { storyId, text: text.trim() });
+    const result = await runMutation("addComment", {
+      storyId,
+      text: text.trim(),
+    });
     if (!result) return;
     cacheComment(result);
     commentDraftByStory.delete(storyId);
@@ -1403,10 +1677,20 @@ import {
     const user = currentUser();
     const target = data.comments.find((item) => item.id === replyToId);
     const story = target ? storyById(target.storyId) : null;
-    if (!user || !target || target.status !== "active" || story?.status !== "active" || !text.trim()) return;
+    if (
+      !user ||
+      !target ||
+      target.status !== "active" ||
+      story?.status !== "active" ||
+      !text.trim()
+    )
+      return;
     const verifiedRootId = target.parentCommentId || target.id;
     if (rootCommentId !== verifiedRootId) return;
-    const result = await runMutation("addReply", { replyToCommentId: replyToId, text: text.trim() });
+    const result = await runMutation("addReply", {
+      replyToCommentId: replyToId,
+      text: text.trim(),
+    });
     if (!result) return;
     cacheComment(result);
     replyDraftByComment.delete(replyToId);
@@ -1421,7 +1705,12 @@ import {
     footer.hidden = true;
     const user = currentUser();
     if (!user) {
-      renderAuthWall(route.mode === "edit" ? "Sign in to edit your chapter." : "Sign in to write on Branchline.", "Guests can read every branch, but writing is for registered members.");
+      renderAuthWall(
+        route.mode === "edit"
+          ? "Sign in to edit your chapter."
+          : "Sign in to write on Branchline.",
+        "Guests can read every branch, but writing is for registered members.",
+      );
       return;
     }
 
@@ -1450,13 +1739,28 @@ import {
     }
 
     const formStory = editing ? sourceStory : null;
-    const parentStory = continuing ? sourceStory : editing && sourceStory.parentId ? storyById(sourceStory.parentId) : null;
-    const modeTitle = editing ? "Edit chapter" : continuing ? "Continue this story" : "Start a new story";
-    const modeSubtitle = editing ? `Updating “${sourceStory.title}”` : continuing ? `Writing after “${sourceStory.title}”` : "Plant the first chapter of a new story tree";
+    const parentStory = continuing
+      ? sourceStory
+      : editing && sourceStory.parentId
+        ? storyById(sourceStory.parentId)
+        : null;
+    const modeTitle = editing
+      ? "Edit chapter"
+      : continuing
+        ? "Continue this story"
+        : "Start a new story";
+    const modeSubtitle = editing
+      ? `Updating “${sourceStory.title}”`
+      : continuing
+        ? `Writing after “${sourceStory.title}”`
+        : "Plant the first chapter of a new story tree";
     const isRootMode = !parentStory;
-    const backHref = editing && sourceStory.status === "draft"
-      ? "#profile"
-      : editing || continuing ? storyHref(sourceStory.id) : homeHref();
+    const backHref =
+      editing && sourceStory.status === "draft"
+        ? "#profile"
+        : editing || continuing
+          ? storyHref(sourceStory.id)
+          : homeHref();
 
     main.innerHTML = `
       <div class="writer-page">
@@ -1470,16 +1774,21 @@ import {
         </div>
 
         <div class="writer-layout ${isRootMode ? "root-mode" : ""}">
-          ${parentStory ? `
+          ${
+            parentStory
+              ? `
             <aside class="reference-panel" aria-label="Previous chapter">
               <div class="panel-header"><div><h2>Previous chapter</h2><p>Read-only reference · scrolls independently</p></div><span class="level-tag">Level ${getLevel(parentStory)}</span></div>
-              ${parentStory.status === "active" ? `
+              ${
+                parentStory.status === "active"
+                  ? `
                 <div class="reference-scroll">
                   <div class="author-line">${avatar(userById(parentStory.authorId), "sm")}<div class="author-copy"><strong>${escapeHTML(userById(parentStory.authorId).name)}</strong><span>${escapeHTML(formatDate(parentStory.createdAt))}</span></div></div>
                   <h3>${escapeHTML(parentStory.title)}</h3>
                   <div class="reference-story-body">${renderParagraphs(parentStory.body)}</div>
                 </div>
-              ` : `
+              `
+                  : `
                 <div class="tombstone-content">
                   <div class="tombstone-inner">
                     <div class="tombstone-icon ${parentStory.status === "reported" ? "reported" : ""}">${icon(parentStory.status === "reported" ? "flag" : "trash")}</div>
@@ -1487,9 +1796,12 @@ import {
                     <p>Its content is hidden, but your chapter remains connected to the story tree.</p>
                   </div>
                 </div>
-              `}
+              `
+              }
             </aside>
-          ` : ""}
+          `
+              : ""
+          }
 
           <section class="editor-panel">
             <div class="panel-header"><div><h2>${editing ? "Your chapter" : "New chapter"}</h2><p>${editing ? "Changes replace your current version" : continuing ? "A new version at the next level" : "A new level 0 beginning"}</p></div>${editing ? `<span class="status-badge ${sourceStory.status}">${formatStatus(sourceStory.status)}</span>` : ""}</div>
@@ -1539,7 +1851,7 @@ import {
       title: String(formData.get("title") || "").trim(),
       deck: String(formData.get("deck") || "").trim(),
       body: String(formData.get("body") || "").trim(),
-      genre: String(formData.get("genre") || "Speculative")
+      genre: String(formData.get("genre") || "Speculative"),
     };
   }
 
@@ -1570,10 +1882,18 @@ import {
 
     if (mode === "edit") {
       const story = storyById(sourceId);
-      if (!story || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+      if (
+        !story ||
+        story.authorId !== user.id ||
+        !["active", "draft"].includes(story.status)
+      )
+        return;
       if (asDraft) {
         if (story.status !== "draft") {
-          showToast("Published chapters stay live while editing. Use Save changes when you're ready.", "info");
+          showToast(
+            "Published chapters stay live while editing. Use Save changes when you're ready.",
+            "info",
+          );
           return;
         }
         payload.asDraft = true;
@@ -1584,7 +1904,8 @@ import {
       if (!asDraft && wasDraft) payload.publish = true;
     } else {
       const parent = mode === "continue" ? storyById(sourceId) : null;
-      if (mode === "continue" && (!parent || parent.status !== "active")) return;
+      if (mode === "continue" && (!parent || parent.status !== "active"))
+        return;
       parentId = parent?.id || null;
       if (parentId) payload.parentId = parentId;
       if (asDraft) payload.asDraft = true;
@@ -1597,11 +1918,21 @@ import {
       savePreferredBranches();
     }
     if (result.status === "draft") {
-      showToast(result.created ? "Draft saved to your profile." : "Draft updated.");
+      showToast(
+        result.created ? "Draft saved to your profile." : "Draft updated.",
+      );
       routeTo("profile");
       return;
     }
-    showToast(wasDraft ? "Draft published." : mode === "edit" ? "Changes published." : parentId ? "Your continuation is live." : "Your new story is live.");
+    showToast(
+      wasDraft
+        ? "Draft published."
+        : mode === "edit"
+          ? "Changes published."
+          : parentId
+            ? "Your continuation is live."
+            : "Your new story is live.",
+    );
     routeTo(`story/${result.storyId}`);
   }
 
@@ -1615,31 +1946,47 @@ import {
       body: `
         ${values.deck ? `<p class="story-deck">${escapeHTML(values.deck)}</p>` : ""}
         <div class="story-body">${values.body ? renderParagraphs(values.body) : "<p>Your story preview will appear here.</p>"}</div>
-      `
+      `,
     });
   }
 
   function profileStoriesForFilter(user) {
-    if (profileFilter === "liked") return data.stories.filter((story) => story.likedBy.includes(user.id) && story.status !== "draft");
-    if (profileFilter === "drafts") return data.stories.filter((story) => story.authorId === user.id && story.status === "draft");
-    return data.stories.filter((story) => story.authorId === user.id && story.status !== "draft");
+    if (profileFilter === "liked")
+      return data.stories.filter(
+        (story) => story.likedBy.includes(user.id) && story.status !== "draft",
+      );
+    if (profileFilter === "drafts")
+      return data.stories.filter(
+        (story) => story.authorId === user.id && story.status === "draft",
+      );
+    return data.stories.filter(
+      (story) => story.authorId === user.id && story.status !== "draft",
+    );
   }
 
   function renderProfileStoryList(user) {
     const stories = profileStoriesForFilter(user);
     if (!stories.length) {
-      const copy = profileFilter === "liked" ? "Stories you like will collect here." : profileFilter === "drafts" ? "You don't have any drafts yet." : "Your published chapters will appear here.";
+      const copy =
+        profileFilter === "liked"
+          ? "Stories you like will collect here."
+          : profileFilter === "drafts"
+            ? "You don't have any drafts yet."
+            : "Your published chapters will appear here.";
       return `<div class="empty-state"><div class="empty-state-icon">${icon(profileFilter === "liked" ? "heart" : "book")}</div><h2>Nothing here yet</h2><p>${copy}</p>${profileFilter !== "liked" ? '<a class="button button-primary" href="#write/start">Start writing</a>' : ""}</div>`;
     }
 
     return `<ul class="story-list">
-      ${stories.map((story) => {
-        const level = getLevel(story);
-        const parent = story.parentId ? storyById(story.parentId) : null;
-        const parentLabel = parent?.status === "active" ? parent.title : "Unavailable chapter";
-        const isOwner = story.authorId === user.id;
-        const showPrivateMetadata = story.status === "active" || story.status === "draft" || isOwner;
-        return `
+      ${stories
+        .map((story) => {
+          const level = getLevel(story);
+          const parent = story.parentId ? storyById(story.parentId) : null;
+          const parentLabel =
+            parent?.status === "active" ? parent.title : "Unavailable chapter";
+          const isOwner = story.authorId === user.id;
+          const showPrivateMetadata =
+            story.status === "active" || story.status === "draft" || isOwner;
+          return `
           <li class="story-list-card" data-status="${story.status}">
             <span class="story-list-accent"></span>
             <div class="story-list-main">
@@ -1660,20 +2007,27 @@ import {
             </div>
           </li>
         `;
-      }).join("")}
+        })
+        .join("")}
     </ul>`;
   }
 
   function renderProfile() {
     const user = currentUser();
     if (!user) {
-      renderAuthWall("Your stories live here.", "Sign in to manage your chapters, drafts, and liked stories.");
+      renderAuthWall(
+        "Your stories live here.",
+        "Sign in to manage your chapters, drafts, and liked stories.",
+      );
       return;
     }
     const owned = data.stories.filter((story) => story.authorId === user.id);
     const published = owned.filter((story) => story.status !== "draft").length;
     const totalLikes = owned.reduce((sum, story) => sum + story.likes, 0);
-    const totalBranches = owned.reduce((sum, story) => sum + childrenOf(story.id).length, 0);
+    const totalBranches = owned.reduce(
+      (sum, story) => sum + childrenOf(story.id).length,
+      0,
+    );
     const drafts = owned.filter((story) => story.status === "draft").length;
 
     main.innerHTML = `
@@ -1720,12 +2074,20 @@ import {
   function confirmDeleteStory(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
-    if (!story || !user || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+    if (
+      !story ||
+      !user ||
+      story.authorId !== user.id ||
+      !["active", "draft"].includes(story.status)
+    )
+      return;
     const isDraft = story.status === "draft";
     const descendants = descendantCount(story.id);
     openDialog({
       title: isDraft ? "Delete this draft?" : "Delete this chapter?",
-      subtitle: isDraft ? "This unpublished draft will be removed permanently." : "Its place in the story tree will be preserved.",
+      subtitle: isDraft
+        ? "This unpublished draft will be removed permanently."
+        : "Its place in the story tree will be preserved.",
       body: `
         <div class="confirm-illustration">${icon("trash")}</div>
         <p>${isDraft ? `Permanently remove <strong>“${escapeHTML(story.title)}”</strong>? It has never been published.` : `The public content of <strong>“${escapeHTML(story.title)}”</strong> and its comments will be removed.`}</p>
@@ -1734,26 +2096,37 @@ import {
       actions: `
         <button class="button button-secondary" type="button" data-action="close-dialog">${isDraft ? "Keep draft" : "Keep chapter"}</button>
         <button class="button button-danger" type="button" data-action="confirm-delete-story" data-story-id="${story.id}">${icon("trash")} ${isDraft ? "Delete draft" : "Delete chapter"}</button>
-      `
+      `,
     });
   }
 
   async function deleteStory(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
-    if (!story || !user || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
+    if (
+      !story ||
+      !user ||
+      story.authorId !== user.id ||
+      !["active", "draft"].includes(story.status)
+    )
+      return;
     const wasDraft = story.status === "draft";
     const result = await runMutation("deleteStory", { storyId });
     if (!result) return;
     if (result.hardDeleted) {
       Object.entries(preferredChildByParent).forEach(([parentId, childId]) => {
-        if (parentId === storyId || childId === storyId) delete preferredChildByParent[parentId];
+        if (parentId === storyId || childId === storyId)
+          delete preferredChildByParent[parentId];
       });
       savePreferredBranches();
     }
     closeAppDialog();
     renderProfile();
-    showToast(wasDraft ? "Draft permanently deleted." : "Chapter deleted. Its branch connection was preserved.");
+    showToast(
+      wasDraft
+        ? "Draft permanently deleted."
+        : "Chapter deleted. Its branch connection was preserved.",
+    );
   }
 
   function openAccountDataDialog() {
@@ -1768,7 +2141,7 @@ import {
       actions: `
         <button class="button button-secondary" type="button" data-action="close-dialog">Cancel</button>
         <button class="button button-danger" type="button" data-action="delete-account">Delete my account</button>
-      `
+      `,
     });
   }
 
@@ -1782,7 +2155,13 @@ import {
       await reauthenticateFirebaseUser();
       result = await callBackend("deleteAccount");
     } catch (error) {
-      showToast(backendMessage(error, "Branchline could not confirm and delete your account."), "info");
+      showToast(
+        backendMessage(
+          error,
+          "Branchline could not confirm and delete your account.",
+        ),
+        "info",
+      );
       setMutationBusy(false);
       return;
     }
@@ -1801,7 +2180,9 @@ import {
     const refreshed = await refreshSharedData({ render: false });
     if (!refreshed) return;
     routeTo(homeHref());
-    showToast(`Account deleted. ${result.preservedStoryNodes || 0} published story connections remain.`);
+    showToast(
+      `Account deleted. ${result.preservedStoryNodes || 0} published story connections remain.`,
+    );
   }
 
   function notificationLabel(notification) {
@@ -1815,20 +2196,26 @@ import {
   function filteredNotifications() {
     const notifications = notificationsForUser();
     if (inboxFilter === "all") return notifications;
-    if (inboxFilter === "unread") return notifications.filter((item) => !item.read);
-    if (inboxFilter === "like") return notifications.filter((item) => item.type === "like" || item.type === "comment_like");
+    if (inboxFilter === "unread")
+      return notifications.filter((item) => !item.read);
+    if (inboxFilter === "like")
+      return notifications.filter(
+        (item) => item.type === "like" || item.type === "comment_like",
+      );
     return notifications.filter((item) => item.type === inboxFilter);
   }
 
   function renderNotificationList() {
     const items = filteredNotifications();
-    if (!items.length) return `<div class="empty-state"><div class="empty-state-icon">${icon("bell")}</div><h2>You're all caught up</h2><p>No notifications match this filter.</p></div>`;
+    if (!items.length)
+      return `<div class="empty-state"><div class="empty-state-icon">${icon("bell")}</div><h2>You're all caught up</h2><p>No notifications match this filter.</p></div>`;
     return `<ul class="notification-list">
-      ${items.map((notification) => {
-        const actor = userById(notification.actorId);
-        const story = storyById(notification.storyId);
-        const storyIsAvailable = story?.status === "active";
-        return `
+      ${items
+        .map((notification) => {
+          const actor = userById(notification.actorId);
+          const story = storyById(notification.storyId);
+          const storyIsAvailable = story?.status === "active";
+          return `
           <li class="notification-item ${notification.read ? "" : "unread"}" data-notification-id="${notification.id}" data-story-id="${notification.storyId}" tabindex="0" role="link">
             ${avatar(actor)}
             <div class="notification-copy">
@@ -1838,25 +2225,34 @@ import {
             <span class="notification-time">${escapeHTML(formatDate(notification.createdAt))}</span>
           </li>
         `;
-      }).join("")}
+        })
+        .join("")}
     </ul>`;
   }
 
   function renderInbox() {
     const user = currentUser();
     if (!user) {
-      renderAuthWall("Your inbox is waiting.", "Sign in to see replies, new continuations, comments, and likes.");
+      renderAuthWall(
+        "Your inbox is waiting.",
+        "Sign in to see replies, new continuations, comments, and likes.",
+      );
       return;
     }
     const userNotifications = notificationsForUser(user.id);
     const counts = {
       all: userNotifications.length,
       unread: userNotifications.filter((item) => !item.read).length,
-      continuation: userNotifications.filter((item) => item.type === "continuation").length,
+      continuation: userNotifications.filter(
+        (item) => item.type === "continuation",
+      ).length,
       reply: userNotifications.filter((item) => item.type === "reply").length,
-      like: userNotifications.filter((item) => item.type === "like" || item.type === "comment_like").length
+      like: userNotifications.filter(
+        (item) => item.type === "like" || item.type === "comment_like",
+      ).length,
     };
-    const filterButton = (id, label) => `<button class="inbox-filter ${inboxFilter === id ? "active" : ""}" type="button" data-inbox-filter="${id}" aria-pressed="${inboxFilter === id}"><span>${label}</span><span>${counts[id]}</span></button>`;
+    const filterButton = (id, label) =>
+      `<button class="inbox-filter ${inboxFilter === id ? "active" : ""}" type="button" data-inbox-filter="${id}" aria-pressed="${inboxFilter === id}"><span>${label}</span><span>${counts[id]}</span></button>`;
     main.innerHTML = `
       <div class="standard-page">
         <section class="page-hero">
@@ -1875,7 +2271,7 @@ import {
               ${filterButton("like", "Likes")}
             </aside>
             <section class="inbox-main">
-              <div class="inbox-main-header"><h2>${({ all: "All activity", unread: "Unread", continuation: "Continuations", reply: "Replies", like: "Likes" })[inboxFilter] || "Activity"}</h2><span class="status-badge active">${filteredNotifications().length} items</span></div>
+              <div class="inbox-main-header"><h2>${{ all: "All activity", unread: "Unread", continuation: "Continuations", reply: "Replies", like: "Likes" }[inboxFilter] || "Activity"}</h2><span class="status-badge active">${filteredNotifications().length} items</span></div>
               <div id="notification-list">${renderNotificationList()}</div>
             </section>
           </div>
@@ -1896,9 +2292,13 @@ import {
 
   async function openNotification(notificationId) {
     const user = currentUser();
-    const notification = data.notifications.find((item) => item.id === notificationId && item.recipientId === user?.id);
+    const notification = data.notifications.find(
+      (item) => item.id === notificationId && item.recipientId === user?.id,
+    );
     if (!notification) return;
-    const result = await runMutation("markNotificationsRead", { notificationIds: [notificationId] });
+    const result = await runMutation("markNotificationsRead", {
+      notificationIds: [notificationId],
+    });
     if (!result) return;
     routeTo(`story/${notification.storyId}`);
   }
@@ -1908,28 +2308,43 @@ import {
     if (!result) return;
     renderInbox();
     renderHeader(getRoute());
-    showToast(result.updated ? "Everything is marked as read." : "You have no unread notifications.");
+    showToast(
+      result.updated
+        ? "Everything is marked as read."
+        : "You have no unread notifications.",
+    );
   }
 
   function adminFilteredStories() {
-    const query = (document.getElementById("admin-search")?.value || "").trim().toLowerCase();
-    const status = document.getElementById("admin-status-filter")?.value || "all";
+    const query = (document.getElementById("admin-search")?.value || "")
+      .trim()
+      .toLowerCase();
+    const status =
+      document.getElementById("admin-status-filter")?.value || "all";
     return data.stories.filter((story) => {
       const author = userById(story.authorId);
       const matchesStatus = status === "all" || story.status === status;
-      const matchesQuery = !query || story.title.toLowerCase().includes(query) || author.name.toLowerCase().includes(query) || story.id.toLowerCase().includes(query);
+      const matchesQuery =
+        !query ||
+        story.title.toLowerCase().includes(query) ||
+        author.name.toLowerCase().includes(query) ||
+        story.id.toLowerCase().includes(query);
       return matchesStatus && matchesQuery;
     });
   }
 
   function renderAdminList() {
     const stories = adminFilteredStories();
-    if (!stories.length) return `<div class="empty-state"><div class="empty-state-icon">${icon("search")}</div><h2>No matching chapters</h2><p>Try a different title, author, ID, or status.</p></div>`;
+    if (!stories.length)
+      return `<div class="empty-state"><div class="empty-state-icon">${icon("search")}</div><h2>No matching chapters</h2><p>Try a different title, author, ID, or status.</p></div>`;
     return `<ul class="admin-list">
-      ${stories.map((story) => {
-        const author = userById(story.authorId);
-        const restorable = (story.status === "reported" || story.status === "deleted") && story.deletionSource !== "account";
-        return `
+      ${stories
+        .map((story) => {
+          const author = userById(story.authorId);
+          const restorable =
+            (story.status === "reported" || story.status === "deleted") &&
+            story.deletionSource !== "account";
+          return `
           <li class="admin-row">
             <div class="admin-story-cell"><strong>${escapeHTML(story.title)}</strong><span>${story.id} · Level ${getLevel(story)} · Updated ${escapeHTML(formatDate(story.updatedAt))}</span></div>
             <div class="admin-author">${avatar(author, "sm")}<span>${escapeHTML(author.name)}</span></div>
@@ -1941,14 +2356,18 @@ import {
             </div>
           </li>
         `;
-      }).join("")}
+        })
+        .join("")}
     </ul>`;
   }
 
   function renderAdmin() {
     const user = currentUser();
     if (!user) {
-      renderAuthWall("Administrator access", "Sign in with the administrator account to review reports and restore chapters.");
+      renderAuthWall(
+        "Administrator access",
+        "Sign in with the administrator account to review reports and restore chapters.",
+      );
       return;
     }
     if (user.role !== "admin") {
@@ -1956,10 +2375,19 @@ import {
       return;
     }
 
-    const activeCount = data.stories.filter((story) => story.status === "active").length;
-    const reportedCount = data.stories.filter((story) => story.status === "reported").length;
-    const deletedCount = data.stories.filter((story) => story.status === "deleted").length;
-    const totalReports = data.stories.reduce((sum, story) => sum + story.reportCount, 0);
+    const activeCount = data.stories.filter(
+      (story) => story.status === "active",
+    ).length;
+    const reportedCount = data.stories.filter(
+      (story) => story.status === "reported",
+    ).length;
+    const deletedCount = data.stories.filter(
+      (story) => story.status === "deleted",
+    ).length;
+    const totalReports = data.stories.reduce(
+      (sum, story) => sum + story.reportCount,
+      0,
+    );
 
     main.innerHTML = `
       <div class="standard-page">
@@ -2002,7 +2430,9 @@ import {
     const story = storyById(storyId);
     if (!story || currentUser()?.role !== "admin") return;
     const author = userById(story.authorId);
-    const restorable = (story.status === "reported" || story.status === "deleted") && story.deletionSource !== "account";
+    const restorable =
+      (story.status === "reported" || story.status === "deleted") &&
+      story.deletionSource !== "account";
     openDialog({
       title: "Inspect chapter",
       subtitle: `${story.id} · ${formatStatus(story.status)}`,
@@ -2019,19 +2449,27 @@ import {
       actions: `
         <button class="button button-secondary" type="button" data-story-id="${story.id}" data-action="view-from-admin">View in tree</button>
         ${restorable ? `<button class="button button-primary" type="button" data-admin-restore="${story.id}">${icon("refresh")} Restore chapter</button>` : story.status === "active" ? `<button class="button button-danger" type="button" data-admin-hide="${story.id}">${icon("flag")} Hide chapter</button>` : ""}
-      `
+      `,
     });
   }
 
   async function restoreStory(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin" || !["reported", "deleted"].includes(story.status)) return;
+    if (
+      !story ||
+      currentUser()?.role !== "admin" ||
+      !["reported", "deleted"].includes(story.status)
+    )
+      return;
     if (story.deletionSource === "account") {
       showToast("Account-erased content cannot be restored.", "info");
       return;
     }
     const title = story.title;
-    const result = await runMutation("moderateStory", { storyId, action: "restore" });
+    const result = await runMutation("moderateStory", {
+      storyId,
+      action: "restore",
+    });
     if (!result) return;
     closeAppDialog();
     renderApp();
@@ -2040,19 +2478,24 @@ import {
 
   function confirmAdminHide(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin" || story.status !== "active") return;
+    if (!story || currentUser()?.role !== "admin" || story.status !== "active")
+      return;
     openDialog({
       title: "Hide this chapter?",
       subtitle: "Its descendants will remain accessible through a placeholder.",
       body: `<p>Hide <strong>“${escapeHTML(story.title)}”</strong> from public view and mark it as under review?</p>`,
-      actions: `<button class="button button-secondary" type="button" data-action="close-dialog">Cancel</button><button class="button button-danger" type="button" data-action="confirm-admin-hide" data-story-id="${story.id}">${icon("flag")} Hide chapter</button>`
+      actions: `<button class="button button-secondary" type="button" data-action="close-dialog">Cancel</button><button class="button button-danger" type="button" data-action="confirm-admin-hide" data-story-id="${story.id}">${icon("flag")} Hide chapter</button>`,
     });
   }
 
   async function adminHide(storyId) {
     const story = storyById(storyId);
-    if (!story || currentUser()?.role !== "admin" || story.status !== "active") return;
-    const result = await runMutation("moderateStory", { storyId, action: "hide" });
+    if (!story || currentUser()?.role !== "admin" || story.status !== "active")
+      return;
+    const result = await runMutation("moderateStory", {
+      storyId,
+      action: "hide",
+    });
     if (!result) return;
     closeAppDialog();
     renderApp();
@@ -2067,20 +2510,31 @@ import {
       .filter((story) => story.status !== "draft")
       .filter((story) => {
         if (!normalized) return true;
-        if (story.status !== "active") return ["unavailable", "reported", "deleted", "chapter"].some((term) => term.includes(normalized));
-        return story.title.toLowerCase().includes(normalized)
-          || story.genre.toLowerCase().includes(normalized)
-          || userById(story.authorId).name.toLowerCase().includes(normalized);
+        if (story.status !== "active")
+          return ["unavailable", "reported", "deleted", "chapter"].some(
+            (term) => term.includes(normalized),
+          );
+        return (
+          story.title.toLowerCase().includes(normalized) ||
+          story.genre.toLowerCase().includes(normalized) ||
+          userById(story.authorId).name.toLowerCase().includes(normalized)
+        );
       })
       .slice(0, 7);
-    list.innerHTML = matches.length ? matches.map((story) => `
+    list.innerHTML = matches.length
+      ? matches
+          .map(
+            (story) => `
       <li>
         <button class="search-result-button" type="button" data-story-id="${story.id}">
           <span class="search-result-copy"><strong>${escapeHTML(story.status === "active" ? story.title : story.status === "reported" ? "Reported chapter" : "Deleted chapter")}</strong><span>${story.status === "active" ? `${escapeHTML(userById(story.authorId).name)} · ${escapeHTML(story.genre)}` : "Content unavailable · branch preserved"}</span></span>
           <span class="level-tag">Level ${getLevel(story)}</span>
         </button>
       </li>
-    `).join("") : `<li class="empty-comments" style="padding:35px 15px">No stories found.</li>`;
+    `,
+          )
+          .join("")
+      : `<li class="empty-comments" style="padding:35px 15px">No stories found.</li>`;
   }
 
   function openSearch() {
@@ -2094,7 +2548,7 @@ import {
       onReady: () => {
         renderSearchResults();
         document.getElementById("global-search")?.focus();
-      }
+      },
     });
   }
 
@@ -2115,7 +2569,10 @@ import {
       renderApp();
       showToast("Signed out. You can keep reading as a guest.");
     } catch (error) {
-      showToast(backendMessage(error, "Branchline could not sign you out. Try again."), "info");
+      showToast(
+        backendMessage(error, "Branchline could not sign you out. Try again."),
+        "info",
+      );
     } finally {
       setMutationBusy(false);
     }
@@ -2139,14 +2596,18 @@ import {
     const branchChoice = event.target.closest("[data-choose-branch]");
     if (branchChoice) {
       event.preventDefault();
-      selectAndOpenChild(branchChoice.dataset.parentId, branchChoice.dataset.chooseBranch);
+      selectAndOpenChild(
+        branchChoice.dataset.parentId,
+        branchChoice.dataset.chooseBranch,
+      );
       return;
     }
 
     const selectedChild = event.target.closest("[data-select-child]");
     if (selectedChild) {
       event.preventDefault();
-      preferredChildByParent[selectedChild.dataset.parentId] = selectedChild.dataset.selectChild;
+      preferredChildByParent[selectedChild.dataset.parentId] =
+        selectedChild.dataset.selectChild;
       savePreferredBranches();
       routeTo(`story/${selectedChild.dataset.selectChild}`);
       return;
@@ -2183,7 +2644,9 @@ import {
       event.preventDefault();
       profileFilter = profileTab.dataset.profileFilter;
       renderProfile();
-      requestAnimationFrame(() => document.getElementById(`profile-tab-${profileFilter}`)?.focus());
+      requestAnimationFrame(() =>
+        document.getElementById(`profile-tab-${profileFilter}`)?.focus(),
+      );
       return;
     }
 
@@ -2234,54 +2697,131 @@ import {
     if (actionTarget) {
       const action = actionTarget.dataset.action;
       const storyId = actionTarget.dataset.storyId;
-      if (!(action === "close-dialog" && actionTarget.tagName === "A")) event.preventDefault();
+      if (!(action === "close-dialog" && actionTarget.tagName === "A"))
+        event.preventDefault();
       switch (action) {
-        case "sign-in": openAuthModal("Sign in to write, react, comment, and report."); break;
-        case "sign-in-route": openAuthModal("Sign in to open this member page."); break;
-        case "user-menu": openUserMenu(); break;
-        case "open-inbox": routeTo("inbox"); break;
-        case "search": openSearch(); break;
-        case "close-dialog": closeAppDialog(); break;
-        case "sign-out": signOut(); break;
-        case "retry-backend": bootBackend(); break;
-        case "about": openInfoDialog("about"); break;
-        case "community-guidelines": openInfoDialog("guidelines"); break;
-        case "start-story": requireAuth(() => routeTo("write/start"), "Sign in to start a new story."); break;
-        case "continue-story": requireAuth(() => routeTo(`write/continue/${storyId}`), "Sign in to continue this story."); break;
-        case "like-story": requireAuth(() => toggleStoryLike(storyId), "Sign in to like this chapter."); break;
-        case "open-comments": openComments(storyId); break;
-        case "load-more-comments": loadStoryComments(storyId); break;
-        case "share-story": openShareDialog(storyId); break;
-        case "report-story": requireAuth(() => openReportDialog(storyId), "Sign in before reporting a chapter."); break;
-        case "confirm-report": confirmReport(storyId); break;
-        case "pick-branch": openBranchPicker(storyId); break;
-        case "copy-share-link": copyShareLink(); break;
+        case "sign-in":
+          openAuthModal("Sign in to write, react, comment, and report.");
+          break;
+        case "sign-in-route":
+          openAuthModal("Sign in to open this member page.");
+          break;
+        case "user-menu":
+          openUserMenu();
+          break;
+        case "open-inbox":
+          routeTo("inbox");
+          break;
+        case "search":
+          openSearch();
+          break;
+        case "close-dialog":
+          closeAppDialog();
+          break;
+        case "sign-out":
+          signOut();
+          break;
+        case "retry-backend":
+          bootBackend();
+          break;
+        case "about":
+          openInfoDialog("about");
+          break;
+        case "community-guidelines":
+          openInfoDialog("guidelines");
+          break;
+        case "start-story":
+          requireAuth(
+            () => routeTo("write/start"),
+            "Sign in to start a new story.",
+          );
+          break;
+        case "continue-story":
+          requireAuth(
+            () => routeTo(`write/continue/${storyId}`),
+            "Sign in to continue this story.",
+          );
+          break;
+        case "like-story":
+          requireAuth(
+            () => toggleStoryLike(storyId),
+            "Sign in to like this chapter.",
+          );
+          break;
+        case "open-comments":
+          openComments(storyId);
+          break;
+        case "load-more-comments":
+          loadStoryComments(storyId);
+          break;
+        case "share-story":
+          openShareDialog(storyId);
+          break;
+        case "report-story":
+          requireAuth(
+            () => openReportDialog(storyId),
+            "Sign in before reporting a chapter.",
+          );
+          break;
+        case "confirm-report":
+          confirmReport(storyId);
+          break;
+        case "pick-branch":
+          openBranchPicker(storyId);
+          break;
+        case "copy-share-link":
+          copyShareLink();
+          break;
         case "native-share": {
           nativeShare(storyId);
           break;
         }
-        case "close-comments": closeComments(); break;
+        case "close-comments":
+          closeComments();
+          break;
         case "comment-sign-in": {
           const returnStoryId = activeCommentsStoryId;
           if (commentsDialog.open) commentsDialog.close();
           document.body.classList.remove("dialog-open");
-          openAuthModal("Sign in to join this conversation.", () => openComments(returnStoryId));
+          openAuthModal("Sign in to join this conversation.", () =>
+            openComments(returnStoryId),
+          );
           break;
         }
-        case "save-draft": saveStoryFromEditor(true); break;
-        case "preview-draft": previewDraft(); break;
-        case "account-data": openAccountDataDialog(); break;
-        case "confirm-delete-story": deleteStory(storyId); break;
-        case "delete-account": deleteAccountData(); break;
-        case "mark-all-read": markAllNotificationsRead(); break;
-        case "view-from-admin": closeAppDialog(); routeTo(`story/${storyId}`); break;
-        case "confirm-admin-hide": adminHide(storyId); break;
-        default: break;
+        case "save-draft":
+          saveStoryFromEditor(true);
+          break;
+        case "preview-draft":
+          previewDraft();
+          break;
+        case "account-data":
+          openAccountDataDialog();
+          break;
+        case "confirm-delete-story":
+          deleteStory(storyId);
+          break;
+        case "delete-account":
+          deleteAccountData();
+          break;
+        case "mark-all-read":
+          markAllNotificationsRead();
+          break;
+        case "view-from-admin":
+          closeAppDialog();
+          routeTo(`story/${storyId}`);
+          break;
+        case "confirm-admin-hide":
+          adminHide(storyId);
+          break;
+        default:
+          break;
       }
       return;
     }
 
-    const storyTarget = event.target.closest('[role="link"][data-story-id], button[data-story-id]:not([data-action])');
+    const storyTarget = event.target.closest(
+      '[role="link"][data-story-id], button[data-story-id]:not([data-action])',
+    );
     if (storyTarget) {
       event.preventDefault();
       closeAppDialog();
@@ -2297,12 +2837,19 @@ import {
     }
     if (event.target.id === "comment-form") {
       event.preventDefault();
-      addComment(activeCommentsStoryId, new FormData(event.target).get("comment") || "");
+      addComment(
+        activeCommentsStoryId,
+        new FormData(event.target).get("comment") || "",
+      );
       return;
     }
     if (event.target.matches(".inline-reply-form")) {
       event.preventDefault();
-      addReply(event.target.dataset.rootCommentId, event.target.dataset.replyToId, new FormData(event.target).get("reply") || "");
+      addReply(
+        event.target.dataset.rootCommentId,
+        event.target.dataset.replyToId,
+        new FormData(event.target).get("reply") || "",
+      );
     }
   });
 
@@ -2337,7 +2884,9 @@ import {
     }
     if (event.target.closest("#story-editor")) {
       const state = document.getElementById("save-state");
-      if (state) state.innerHTML = '<span class="save-state-dot" style="background:#d29654"></span>Unsaved changes';
+      if (state)
+        state.innerHTML =
+          '<span class="save-state-dot" style="background:#d29654"></span>Unsaved changes';
     }
   });
 
@@ -2351,33 +2900,64 @@ import {
   document.addEventListener("keydown", (event) => {
     const notification = event.target.closest?.("[data-notification-id]");
     const storyLink = event.target.closest?.('[role="link"][data-story-id]');
-    if ((notification || storyLink) && (event.key === "Enter" || event.key === " ")) {
+    if (
+      (notification || storyLink) &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
       event.preventDefault();
-      event.target.closest(notification ? "[data-notification-id]" : '[role="link"][data-story-id]')?.click();
+      event.target
+        .closest(
+          notification
+            ? "[data-notification-id]"
+            : '[role="link"][data-story-id]',
+        )
+        ?.click();
       return;
     }
 
-    const activeProfileTab = event.target.closest?.('[role="tab"][data-profile-filter]');
-    if (activeProfileTab && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+    const activeProfileTab = event.target.closest?.(
+      '[role="tab"][data-profile-filter]',
+    );
+    if (
+      activeProfileTab &&
+      ["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+    ) {
       event.preventDefault();
       const filters = ["stories", "drafts", "liked"];
-      const currentIndex = filters.indexOf(activeProfileTab.dataset.profileFilter);
+      const currentIndex = filters.indexOf(
+        activeProfileTab.dataset.profileFilter,
+      );
       let nextIndex = currentIndex;
-      if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + filters.length) % filters.length;
-      if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % filters.length;
+      if (event.key === "ArrowLeft")
+        nextIndex = (currentIndex - 1 + filters.length) % filters.length;
+      if (event.key === "ArrowRight")
+        nextIndex = (currentIndex + 1) % filters.length;
       if (event.key === "Home") nextIndex = 0;
       if (event.key === "End") nextIndex = filters.length - 1;
       profileFilter = filters[nextIndex];
       renderProfile();
-      requestAnimationFrame(() => document.getElementById(`profile-tab-${profileFilter}`)?.focus());
+      requestAnimationFrame(() =>
+        document.getElementById(`profile-tab-${profileFilter}`)?.focus(),
+      );
       return;
     }
 
-    if (getRoute().name !== "reader" || appDialog.open || commentsDialog.open) return;
+    if (getRoute().name !== "reader" || appDialog.open || commentsDialog.open)
+      return;
     if (event.target.matches("input, textarea, select, button, a")) return;
     const card = document.getElementById("story-card");
-    if (!card || (document.activeElement !== document.body && document.activeElement !== card)) return;
-    const directions = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
+    if (
+      !card ||
+      (document.activeElement !== document.body &&
+        document.activeElement !== card)
+    )
+      return;
+    const directions = {
+      ArrowLeft: "left",
+      ArrowRight: "right",
+      ArrowUp: "up",
+      ArrowDown: "down",
+    };
     if (directions[event.key]) {
       event.preventDefault();
       navigateStory(directions[event.key]);
@@ -2413,7 +2993,10 @@ import {
     renderApp();
     window.scrollTo({ top: 0, behavior: "instant" });
     requestAnimationFrame(() => {
-      const focusTarget = getRoute().name === "reader" ? document.getElementById("story-card") : main;
+      const focusTarget =
+        getRoute().name === "reader"
+          ? document.getElementById("story-card")
+          : main;
       focusTarget?.focus({ preventScroll: true });
     });
   });
