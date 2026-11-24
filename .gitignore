@@ -2,3 +2,11 @@
 *.log
 .codex-preview/
 outputs/
+node_modules/
+.firebase/
+firebase-export/
+.env
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+service-account*.json

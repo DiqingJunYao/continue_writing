@@ -1,188 +1,56 @@
+import {
+  BranchlineBackendError,
+  callBackend,
+  currentFirebaseUser,
+  initializeFirebaseBackend,
+  isFirebaseConfigured,
+  reauthenticateFirebaseUser,
+  signInWithFirebase,
+  signOutFirebase,
+  subscribeToAuth
+} from "./firebase-client.js";
+
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "branchline-demo-data-v1";
-  const SESSION_KEY = "branchline-demo-session-v1";
   const PATH_KEY = "branchline-preferred-branches-v1";
-  const SCHEMA_VERSION = 2;
 
-  const initialData = {
-    schemaVersion: SCHEMA_VERSION,
-    users: [
-      { id: "u1", name: "Maya Bennett", handle: "@mayawrites", initials: "MB", tone: "rose", role: "admin", bio: "Collector of strange doors and unfinished sentences." },
-      { id: "u2", name: "Nora Vale", handle: "@noravale", initials: "NV", tone: "green", role: "user" },
-      { id: "u3", name: "Theo Lin", handle: "@theolin", initials: "TL", tone: "blue", role: "user" },
-      { id: "u4", name: "Imani Cross", handle: "@imanicross", initials: "IC", tone: "purple", role: "user" },
-      { id: "u5", name: "Jules Park", handle: "@julespark", initials: "JP", tone: "green", role: "user" },
-      { id: "u6", name: "Rowan Grey", handle: "@rowangrey", initials: "RG", tone: "blue", role: "user" }
-    ],
-    stories: [
-      {
-        id: "s1", parentId: null, rootId: "s1", authorId: "u2", status: "active", reportCount: 0, reportedBy: [],
-        title: "The Last Lightkeeper", deck: "On the night the sea forgot the moon, Mara saw a light where no island should be.", genre: "Speculative",
-        body: "The lighthouse had been dark for nineteen years when it blinked at Mara from beyond the reef. Once. Twice. Then a third time—slow and deliberate, like an old friend spelling her name across a crowded room.\n\nShe lowered the kettle from the stove and stepped onto the porch. All along the village, windows opened. No one spoke. They had buried the last lightkeeper with empty boots because the sea had kept the rest of him.\n\nOut past the black teeth of the reef, the impossible light turned once more. This time, it did not blink. It pointed straight at her.",
-        createdAt: "Today, 8:42 PM", updatedAt: "Today", likes: 482, likedBy: [], views: 2814
-      },
-      {
-        id: "s2", parentId: null, rootId: "s2", authorId: "u4", status: "active", reportCount: 0, reportedBy: [],
-        title: "The House That Remembered Us", deck: "Every room kept a different version of the family who left it behind.", genre: "Magical realism",
-        body: "When Celia unlocked the blue house, the hallway exhaled her childhood name. Not the name printed on her passport, but the small secret one her brother had used before either of them knew how to lie.\n\nDust rose from the floorboards in the shape of two running children. Somewhere upstairs, a tap began to drip in the rhythm of their mother's favorite song. Celia kept one hand on the open door.\n\nThe estate agent had promised the house was empty. The house, apparently, had not agreed.",
-        createdAt: "Yesterday", updatedAt: "Yesterday", likes: 326, likedBy: [], views: 1940
-      },
-      {
-        id: "s3", parentId: null, rootId: "s3", authorId: "u3", status: "active", reportCount: 1, reportedBy: ["u6"],
-        title: "Platform Zero", deck: "The midnight train arrived at a platform that wasn't on any map.", genre: "Mystery",
-        body: "At 12:03, the station clock skipped backward one minute and Platform Zero appeared between eleven and twelve. Elias watched the sign click into existence as if the bricks had simply remembered it.\n\nA silver train slid in without wind or sound. Every carriage was lit. Every seat was empty except one, where a red suitcase waited beneath a card bearing his name.\n\nThe doors opened. Behind him, all the clocks began counting down.",
-        createdAt: "3 days ago", updatedAt: "2 days ago", likes: 219, likedBy: [], views: 1503
-      },
-      {
-        id: "s1a", parentId: "s1", rootId: "s1", authorId: "u1", status: "active", reportCount: 0, reportedBy: [],
-        title: "A Signal in the Fog", deck: "Mara answers the impossible light—and something answers back.", genre: "Speculative",
-        body: "Mara carried the old signal lamp down to the beach, though its brass was green and its wick had turned to powder. Her father had taught her the code when she was seven: one sweep for danger, two for safe passage, three for come home.\n\nShe struck a match. The lamp caught with a blue flame. Across the water, the distant beam vanished.\n\nThen the fog around her filled with bells. From somewhere beyond the reef came three slow sweeps of light. Come home, it said. Come home. Come home.",
-        createdAt: "38 min ago", updatedAt: "38 min ago", likes: 231, likedBy: [], views: 1104
-      },
-      {
-        id: "s1b", parentId: "s1", rootId: "s1", authorId: "u5", status: "active", reportCount: 3, reportedBy: ["u2", "u3", "u4"],
-        title: "The Bell Below", deck: "The light is not a warning. It is a key.", genre: "Horror",
-        body: "Mara knew the rhythm before she knew why. The light was keeping time with the chapel bell—but the chapel bell had been cut down years ago and melted into anchors.\n\nShe followed the pulse along the cliff path. With every flash, the sea retreated another yard, exposing stairs carved into the reef. At the bottom, where the water should have been deepest, a bronze door waited.\n\nSomething on the other side rang the bell again.",
-        createdAt: "31 min ago", updatedAt: "31 min ago", likes: 187, likedBy: [], views: 896
-      },
-      {
-        id: "s1c", parentId: "s1", rootId: "s1", authorId: "u6", status: "reported", deletionSource: "moderation", reportCount: 4, reportedBy: ["u1", "u2", "u3", "u4"],
-        title: "What the Tide Returned", deck: "The sea gives back one thing it should have kept.", genre: "Speculative",
-        body: "The tide withdrew so quickly that fish hung glittering in the mud. In the sudden silence, Mara heard footsteps crossing the exposed seabed.\n\nHer father came out of the fog wearing the coat he had drowned in. He had not aged a day. In one hand he held the lighthouse key; in the other, a fistful of wet stars.\n\n‘Don't let them relight it,’ he said, and looked over his shoulder at the approaching beam.",
-        createdAt: "22 min ago", updatedAt: "10 min ago", likes: 94, likedBy: [], views: 511
-      },
-      {
-        id: "s1a1", parentId: "s1a", rootId: "s1", authorId: "u3", status: "active", reportCount: 0, reportedBy: [],
-        title: "The Name in the Static", deck: "There are voices between the flashes, and one of them knows Mara.", genre: "Speculative",
-        body: "Between the bells, the dead radio in Mara's pocket crackled. She pulled it out and watched the dial turn by itself past every marked frequency.\n\nA child's voice surfaced through the static. It recited coordinates, then a date nineteen years gone, then the name Mara's mother had chosen for a second daughter who was never born.\n\nOut at sea, the light began drawing a door.",
-        createdAt: "12 min ago", updatedAt: "12 min ago", likes: 88, likedBy: [], views: 412
-      },
-      {
-        id: "s1a2", parentId: "s1a", rootId: "s1", authorId: "u1", status: "active", reportCount: 0, reportedBy: [],
-        title: "Three Sweeps Home", deck: "Mara takes the old code literally.", genre: "Adventure",
-        body: "Mara turned the lamp toward the village and answered with three sweeps of her own. Come home. The blue flame leapt higher with each pass.\n\nEvery dark window behind her lit at once. Not with electricity, but with the warm gold of rooms she remembered: her father's workshop, her mother's kitchen, the bedroom they had locked after the funeral.\n\nThe village road stretched toward the sea, becoming a bridge of light. Mara stepped onto it before fear could learn her name.",
-        createdAt: "8 min ago", updatedAt: "8 min ago", likes: 71, likedBy: [], views: 308
-      },
-      {
-        id: "s1b1", parentId: "s1b", rootId: "s1", authorId: "u4", status: "active", reportCount: 0, reportedBy: [],
-        title: "Under the Bronze Door", deck: "Mara enters the chamber beneath the missing sea.", genre: "Horror",
-        body: "The bronze door opened inward before Mara touched it. Warm air breathed across her face, carrying candle smoke and salt.\n\nBelow the reef was a room larger than the village. Thousands of bells hung from its ceiling, each engraved with a name. One was ringing. Her name moved across its metal in letters that had not been there a moment ago.\n\nA ladder waited beneath it.",
-        createdAt: "14 min ago", updatedAt: "14 min ago", likes: 63, likedBy: [], views: 290
-      },
-      {
-        id: "s1c1", parentId: "s1c", rootId: "s1", authorId: "u5", status: "active", reportCount: 0, reportedBy: [],
-        title: "Salt in Her Pockets", deck: "The hidden chapter is gone, but its branch continues.", genre: "Speculative",
-        body: "Mara found the key in her pocket without remembering how it got there. Salt crusted its teeth, and a thin red thread was tied through the bow.\n\nThe beam swept over her. For a heartbeat she saw every path the night might take, branching bright across the water. Most ended at the lighthouse. One ended beneath her feet.\n\nShe chose the path no light had touched.",
-        createdAt: "6 min ago", updatedAt: "6 min ago", likes: 51, likedBy: [], views: 214
-      },
-      {
-        id: "s2a", parentId: "s2", rootId: "s2", authorId: "u2", status: "active", reportCount: 0, reportedBy: [],
-        title: "The Room Behind Tuesday", deck: "Celia finds a door that only exists one day each week.", genre: "Magical realism",
-        body: "On the second-floor landing, Tuesday had its own door. The brass plaque said so in her mother's handwriting.\n\nCelia opened it onto a summer afternoon from 1997. Her brother sat cross-legged on the carpet, building a city from blue blocks. He looked up, twenty years younger than the day he died, and frowned.\n\n‘You took your time,’ he said.",
-        createdAt: "Yesterday", updatedAt: "Yesterday", likes: 146, likedBy: [], views: 802
-      },
-      {
-        id: "s2b", parentId: "s2", rootId: "s2", authorId: "u1", status: "draft", reportCount: 0, reportedBy: [],
-        title: "What the Wallpaper Heard", deck: "A draft continuation.", genre: "Mystery",
-        body: "The wallpaper whispered after midnight. Celia pressed her ear to the faded roses and heard the family arguing on the other side.",
-        createdAt: "Today", updatedAt: "Today", likes: 0, likedBy: [], views: 0
-      },
-      {
-        id: "s2a1", parentId: "s2a", rootId: "s2", authorId: "u1", status: "deleted", deletionSource: "author", reportCount: 0, reportedBy: [],
-        title: "The Blue Block City", deck: "A deleted chapter with a living continuation.", genre: "Magical realism",
-        body: "Celia knelt beside the city and recognized its streets. Her brother had built the neighborhood exactly as it stood today, down to the burned-out bakery that would not close for another decade.",
-        createdAt: "Yesterday", updatedAt: "Today", likes: 23, likedBy: [], views: 121
-      },
-      {
-        id: "s2a1a", parentId: "s2a1", rootId: "s2", authorId: "u4", status: "active", reportCount: 0, reportedBy: [],
-        title: "A Map Made of Memory", deck: "The lost chapter still points somewhere.", genre: "Magical realism",
-        body: "Without the missing account, Celia had only the city of blocks. She photographed it from above and discovered that every blue roof marked a place someone in her family had forgotten on purpose.\n\nOne stood where no building existed. Yet.\n\nHer brother handed her the smallest block. ‘This is where you buried the key,’ he said.",
-        createdAt: "4 hours ago", updatedAt: "4 hours ago", likes: 39, likedBy: [], views: 177
-      },
-      {
-        id: "s3a", parentId: "s3", rootId: "s3", authorId: "u1", status: "active", reportCount: 0, reportedBy: [],
-        title: "The Passenger List", deck: "Elias finds his name on more than one journey.", genre: "Mystery",
-        body: "The card on the suitcase listed not one destination but seven. Beside each was Elias's name in a different hand.\n\nHe opened the case. Inside lay seven photographs of himself stepping off the silver train, each at a different age. In the last, he was older than his father had lived to be.\n\nA conductor cleared her throat behind him. ‘Which ending did you reserve?’ she asked.",
-        createdAt: "2 days ago", updatedAt: "2 days ago", likes: 104, likedBy: [], views: 604
-      }
-    ],
-    comments: [
-      { id: "c1", storyId: "s1", parentCommentId: null, replyToCommentId: null, authorId: "u3", status: "active", text: "The three flashes gave me chills. I love how much room this leaves for the next writer.", createdAt: "34 min ago", likes: 42, likedBy: [] },
-      { id: "c2", storyId: "s1", parentCommentId: "c1", replyToCommentId: "c1", authorId: "u1", status: "active", text: "Same! I took it as a message and ran with that in my version.", createdAt: "29 min ago", likes: 18, likedBy: [] },
-      { id: "c3", storyId: "s1", parentCommentId: "c1", replyToCommentId: "c2", authorId: "u2", status: "active", text: "And your blue-flame detail was perfect. It feels like it always belonged here.", createdAt: "21 min ago", likes: 11, likedBy: [] },
-      { id: "c4", storyId: "s1", parentCommentId: null, replyToCommentId: null, authorId: "u5", status: "active", text: "I read ‘pointed straight at her’ as a threat, which is how The Bell Below happened.", createdAt: "26 min ago", likes: 27, likedBy: [] },
-      { id: "c5", storyId: "s1", parentCommentId: "c4", replyToCommentId: "c4", authorId: "u4", status: "active", text: "That branch is wonderfully unsettling.", createdAt: "13 min ago", likes: 7, likedBy: [] },
-      { id: "c6", storyId: "s1a", parentCommentId: null, replyToCommentId: null, authorId: "u4", status: "active", text: "The old signal code makes the choice feel inevitable. Beautiful continuation.", createdAt: "17 min ago", likes: 15, likedBy: [] },
-      { id: "c7", storyId: "s3a", parentCommentId: null, replyToCommentId: null, authorId: "u3", status: "active", text: "Seven endings! This is exactly the kind of branch I hoped someone would find.", createdAt: "1 day ago", likes: 23, likedBy: [] }
-    ],
-    notifications: [
-      { id: "n1", type: "continuation", actorId: "u3", recipientId: "u1", storyId: "s1a1", targetStoryId: "s1a", read: false, createdAt: "12 min ago", quote: "The Name in the Static" },
-      { id: "n2", type: "reply", actorId: "u2", recipientId: "u1", storyId: "s1", targetStoryId: "s1", read: false, createdAt: "21 min ago", quote: "your blue-flame detail was perfect" },
-      { id: "n3", type: "like", actorId: "u4", recipientId: "u1", storyId: "s3a", targetStoryId: "s3a", read: false, createdAt: "3 hours ago", quote: "The Passenger List" },
-      { id: "n4", type: "comment", actorId: "u3", recipientId: "u1", storyId: "s3a", targetStoryId: "s3a", read: true, createdAt: "1 day ago", quote: "Seven endings!" },
-      { id: "n5", type: "continuation", actorId: "u4", recipientId: "u1", storyId: "s2a1a", targetStoryId: "s2a1", read: true, createdAt: "4 hours ago", quote: "A Map Made of Memory" }
-    ],
-    auditLog: [],
-    demoAuthProviders: {}
-  };
+  const emptyData = () => ({ users: [], stories: [], comments: [], notifications: [], auditLog: [], truncated: false });
 
-  const clone = (value) => JSON.parse(JSON.stringify(value));
-
-  function loadData() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      const valid = saved
-        && saved.schemaVersion === SCHEMA_VERSION
-        && Array.isArray(saved.users)
-        && Array.isArray(saved.stories)
-        && Array.isArray(saved.comments)
-        && Array.isArray(saved.notifications);
-      if (valid) {
-        saved.auditLog = Array.isArray(saved.auditLog) ? saved.auditLog : [];
-        saved.demoAuthProviders = saved.demoAuthProviders && typeof saved.demoAuthProviders === "object"
-          ? saved.demoAuthProviders
-          : {};
-        saved.stories.forEach((story) => {
-          story.reportedBy = Array.isArray(story.reportedBy) ? story.reportedBy : [];
-          story.likedBy = Array.isArray(story.likedBy) ? story.likedBy : [];
-          if (!story.deletionSource && story.status === "reported") story.deletionSource = "moderation";
-          if (!story.deletionSource && story.status === "deleted") story.deletionSource = "author";
-        });
-        saved.comments.forEach((comment) => {
-          comment.likedBy = Array.isArray(comment.likedBy) ? comment.likedBy : [];
-          if (!comment.deletionSource && comment.status === "deleted") comment.deletionSource = "story";
-        });
-        saved.notifications.forEach((notification) => {
-          if (!notification.recipientId) notification.recipientId = "u1";
-        });
-        return saved;
-      }
-    } catch (error) {
-      console.warn("Could not load saved Branchline data", error);
-    }
-    return clone(initialData);
-  }
-
-  function loadSession() {
-    try {
-      return JSON.parse(localStorage.getItem(SESSION_KEY)) || { userId: null };
-    } catch {
-      return { userId: null };
-    }
+  function normalizeBootstrap(payload = {}) {
+    const normalized = {
+      users: Array.isArray(payload.users) ? payload.users : Array.isArray(payload.profiles) ? payload.profiles : [],
+      stories: Array.isArray(payload.stories) ? payload.stories : [],
+      comments: Array.isArray(payload.comments) ? payload.comments : [],
+      notifications: Array.isArray(payload.notifications) ? payload.notifications : [],
+      auditLog: Array.isArray(payload.auditLog) ? payload.auditLog : [],
+      truncated: payload.truncated === true
+    };
+    normalized.stories.forEach((story) => {
+      story.likedBy = Array.isArray(story.likedBy) ? story.likedBy : [];
+      story.reportedBy = Array.isArray(story.reportedBy) ? story.reportedBy : [];
+      story.likes = Number(story.likes || 0);
+      story.views = Number(story.views || 0);
+      story.reportCount = Number(story.reportCount || 0);
+    });
+    normalized.comments.forEach((comment) => {
+      comment.likedBy = Array.isArray(comment.likedBy) ? comment.likedBy : [];
+      comment.likes = Number(comment.likes || 0);
+    });
+    return normalized;
   }
 
   function loadPreferredBranches() {
     try {
-      return JSON.parse(localStorage.getItem(PATH_KEY)) || {};
+      const parsed = JSON.parse(localStorage.getItem(PATH_KEY));
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     } catch {
       return {};
     }
   }
 
-  let data = loadData();
-  let session = loadSession();
+  let data = emptyData();
+  let session = { userId: null };
   let preferredChildByParent = loadPreferredBranches();
   let pendingAuthAction = null;
   let activeCommentsStoryId = null;
@@ -190,8 +58,21 @@
   let inboxFilter = "all";
   let profileFilter = "stories";
   let expandedReplyThreads = new Set();
+  let commentCursorByStory = new Map();
+  let commentLoadInFlight = new Map();
+  let commentDraftByStory = new Map();
+  let replyDraftByComment = new Map();
   let wheelLocked = false;
   let touchStart = null;
+  let backendReady = false;
+  let backendLoading = true;
+  let backendError = null;
+  let refreshRevision = 0;
+  let mutationInFlight = false;
+  let authSubscriptionStarted = false;
+  let authSnapshotSeen = false;
+  let lastAuthUid = null;
+  let inboxReadUpdateInFlight = false;
 
   const main = document.getElementById("main-content");
   const header = document.getElementById("site-header");
@@ -200,16 +81,12 @@
   const commentsDialog = document.getElementById("comments-dialog");
   const toastRegion = document.getElementById("toast-region");
 
-  function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
-  function saveSession() {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  }
-
   function savePreferredBranches() {
-    localStorage.setItem(PATH_KEY, JSON.stringify(preferredChildByParent));
+    try {
+      localStorage.setItem(PATH_KEY, JSON.stringify(preferredChildByParent));
+    } catch {
+      // Branch selection still works for this visit when storage is blocked.
+    }
   }
 
   function escapeHTML(value = "") {
@@ -227,39 +104,6 @@
       .filter(Boolean)
       .map((paragraph) => `<p>${escapeHTML(paragraph)}</p>`)
       .join("");
-  }
-
-  function createId(prefix) {
-    const randomPart = globalThis.crypto?.randomUUID?.()
-      || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    return `${prefix}-${randomPart}`;
-  }
-
-  function recordAudit(action, story, previousStatus = null) {
-    data.auditLog.push({
-      id: createId("audit"),
-      action,
-      actorId: currentUser()?.id || null,
-      storyId: story?.id || null,
-      previousStatus,
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  function addNotification({ type, actorId, recipientId, storyId, targetStoryId = storyId, quote = "" }) {
-    if (!actorId || !recipientId || actorId === recipientId) return;
-    if (!data.users.some((user) => user.id === recipientId)) return;
-    data.notifications.unshift({
-      id: createId("notification"),
-      type,
-      actorId,
-      recipientId,
-      storyId,
-      targetStoryId,
-      read: false,
-      createdAt: "Just now",
-      quote
-    });
   }
 
   function notificationsForUser(userId = currentUser()?.id) {
@@ -328,11 +172,29 @@
     return data.stories.filter((story) => story.status !== "draft");
   }
 
+  function homeStoryId() {
+    const activeRoots = data.stories.filter((story) => story.parentId === null && story.status === "active");
+    return activeRoots.find((story) => childrenOf(story.id).length > 0)?.id
+      || activeRoots[0]?.id
+      || data.stories.find((story) => story.parentId === null && story.status !== "draft")?.id
+      || visibleStories()[0]?.id
+      || null;
+  }
+
+  function storyHref(storyId = null) {
+    return storyId ? `#story/${storyId}` : "#story";
+  }
+
+  function homeHref() {
+    return storyHref(homeStoryId());
+  }
+
   function childrenOf(storyId, includeDrafts = false) {
     return data.stories.filter((story) => story.parentId === storyId && (includeDrafts || story.status !== "draft"));
   }
 
   function siblingsOf(story) {
+    if (!story.parentId) return [story];
     return data.stories.filter((candidate) => candidate.parentId === story.parentId && candidate.status !== "draft");
   }
 
@@ -366,11 +228,23 @@
   }
 
   function commentCount(storyId) {
-    return data.comments.filter((comment) => comment.storyId === storyId && comment.status === "active").length;
+    return Math.max(0, Number(storyById(storyId)?.commentCount || 0));
   }
 
   function wordCount(value = "") {
     return value.trim() ? value.trim().split(/\s+/).length : 0;
+  }
+
+  function formatDate(value) {
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) return "Recently";
+    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    if (Math.abs(seconds) < 60) return "just now";
+    if (Math.abs(seconds) < 3600) return formatter.format(Math.round(seconds / 60), "minute");
+    if (Math.abs(seconds) < 86400) return formatter.format(Math.round(seconds / 3600), "hour");
+    if (Math.abs(seconds) < 604800) return formatter.format(Math.round(seconds / 86400), "day");
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
   }
 
   function formatStatus(status) {
@@ -380,15 +254,15 @@
   function getRoute() {
     const raw = location.hash.replace(/^#\/?/, "");
     const parts = raw.split("/").filter(Boolean);
-    if (!parts.length) return { name: "reader", storyId: "s1" };
-    if (parts[0] === "story") return { name: "reader", storyId: parts[1] || "s1" };
+    if (!parts.length) return { name: "reader", storyId: null };
+    if (parts[0] === "story") return { name: "reader", storyId: parts[1] || null };
     if (parts[0] === "write" && parts[1] === "continue") return { name: "write", mode: "continue", storyId: parts[2] };
     if (parts[0] === "write") return { name: "write", mode: "start" };
     if (parts[0] === "edit") return { name: "write", mode: "edit", storyId: parts[1] };
     if (parts[0] === "profile") return { name: "profile" };
     if (parts[0] === "inbox") return { name: "inbox" };
     if (parts[0] === "admin") return { name: "admin" };
-    return { name: "reader", storyId: "s1" };
+    return { name: "reader", storyId: null };
   }
 
   function routeTo(path) {
@@ -406,12 +280,12 @@
     const navIsActive = (name) => route.name === name ? " active" : "";
     header.innerHTML = `
       <div class="header-inner">
-        <a class="brand" href="#story/s1" aria-label="Branchline home">
+        <a class="brand" href="${homeHref()}" aria-label="Branchline home">
           <span class="brand-mark"><span class="brand-dot"></span></span>
           <span class="brand-name">Branchline</span>
         </a>
         <nav class="header-nav" aria-label="Primary navigation">
-          <a class="nav-link${navIsActive("reader")}" href="#story/s1">Explore</a>
+          <a class="nav-link${navIsActive("reader")}" href="${homeHref()}">Explore</a>
           <a class="nav-link mobile-keep${route.name === "write" ? " active" : ""}" href="#write/start">Start a story</a>
           ${user ? `<a class="nav-link${navIsActive("profile")}" href="#profile">My stories</a>` : ""}
           ${user?.role === "admin" ? `<a class="nav-link${navIsActive("admin")}" href="#admin">Moderation</a>` : ""}
@@ -438,7 +312,7 @@
         <div class="footer-brand"><span class="brand-mark"><span class="brand-dot"></span></span>Branchline</div>
         <p class="footer-copy">Stories don't have to end where one writer stops. Choose a branch, add your voice, and leave the next door open.</p>
         <nav class="footer-links" aria-label="Footer navigation">
-          <a class="footer-link" href="#story/s1">Explore stories</a>
+          <a class="footer-link" href="${homeHref()}">Explore stories</a>
           <a class="footer-link" href="#write/start">Start writing</a>
           <button class="footer-link" type="button" data-action="about">How it works</button>
           <button class="footer-link" type="button" data-action="community-guidelines">Community guidelines</button>
@@ -457,6 +331,152 @@
       toast.classList.add("removing");
       window.setTimeout(() => toast.remove(), 190);
     }, 3400);
+  }
+
+  function backendMessage(error, fallback = "Branchline could not reach the shared service. Try again.") {
+    if (error instanceof BranchlineBackendError && error.message) return error.message;
+    return typeof error?.message === "string" && error.message ? error.message : fallback;
+  }
+
+  function renderBackendState() {
+    renderHeader({ name: "reader" });
+    footer.hidden = true;
+    const failed = Boolean(backendError);
+    main.innerHTML = `
+      <section class="auth-wall" aria-live="polite">
+        <div class="auth-wall-card">
+          <div class="auth-mark">${icon(failed ? "alert" : "branch")}</div>
+          <h1>${failed ? "Branchline is temporarily unavailable." : "Opening the shared story tree…"}</h1>
+          <p>${escapeHTML(failed ? backendMessage(backendError) : "Loading the latest stories, comments, and branches.")}</p>
+          ${failed ? `<button class="button button-primary" type="button" data-action="retry-backend">Try again</button>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  async function refreshSharedData({ render = true } = {}) {
+    const revision = ++refreshRevision;
+    try {
+      const payload = await callBackend("bootstrap");
+      if (revision !== refreshRevision) return false;
+      const cachedComments = data.comments;
+      const cachedUsers = data.users;
+      const nextData = normalizeBootstrap(payload);
+      const activeStoryIds = new Set(nextData.stories.filter((story) => story.status === "active").map((story) => story.id));
+      nextData.comments = cachedComments.filter((comment) => activeStoryIds.has(comment.storyId));
+      const commentAuthorIds = new Set(nextData.comments.map((comment) => comment.authorId).filter(Boolean));
+      cachedUsers.forEach((profile) => {
+        if (commentAuthorIds.has(profile.id) && !nextData.users.some((candidate) => candidate.id === profile.id)) {
+          nextData.users.push(profile);
+        }
+      });
+      data = nextData;
+      const firebaseUser = currentFirebaseUser();
+      session = { userId: firebaseUser?.uid || payload.currentUser?.id || null };
+      if (payload.currentUser && !data.users.some((user) => user.id === payload.currentUser.id)) {
+        data.users.push(payload.currentUser);
+      }
+      backendReady = true;
+      backendLoading = false;
+      backendError = null;
+      if (render) renderApp();
+      return true;
+    } catch (error) {
+      if (revision !== refreshRevision) return false;
+      backendLoading = false;
+      backendError = error;
+      if (!backendReady && render) renderBackendState();
+      else showToast(backendMessage(error), "info");
+      return false;
+    }
+  }
+
+  function setMutationBusy(busy) {
+    mutationInFlight = busy;
+    document.body.toggleAttribute("aria-busy", busy);
+    document.querySelectorAll("button").forEach((button) => {
+      if (busy && !button.disabled) {
+        button.disabled = true;
+        button.dataset.backendBusyDisabled = "true";
+      } else if (!busy && button.dataset.backendBusyDisabled === "true") {
+        button.disabled = false;
+        delete button.dataset.backendBusyDisabled;
+      }
+    });
+  }
+
+  async function runMutation(name, payload = {}, { refresh = true } = {}) {
+    if (mutationInFlight) {
+      showToast("Please wait for the current change to finish.", "info");
+      return null;
+    }
+    setMutationBusy(true);
+    try {
+      const result = await callBackend(name, payload);
+      if (refresh) {
+        const refreshed = await refreshSharedData({ render: false });
+        if (!refreshed) {
+          backendReady = false;
+          renderBackendState();
+          return null;
+        }
+      }
+      return result;
+    } catch (error) {
+      showToast(backendMessage(error), "info");
+      return null;
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
+  async function bootBackend() {
+    if (!isFirebaseConfigured()) {
+      backendLoading = false;
+      backendError = new BranchlineBackendError("backend/not-configured", "Firebase is not configured for this Branchline build.");
+      renderBackendState();
+      return;
+    }
+    backendLoading = true;
+    backendError = null;
+    renderBackendState();
+    if (!authSubscriptionStarted) {
+      authSubscriptionStarted = true;
+      subscribeToAuth((snapshot) => {
+        if (!snapshot.ready) return;
+        if (snapshot.error && !snapshot.user) {
+          backendError = snapshot.error;
+          backendLoading = false;
+          renderBackendState();
+          return;
+        }
+        const nextUid = snapshot.user?.uid || null;
+        const identityChanged = !authSnapshotSeen || nextUid !== lastAuthUid;
+        authSnapshotSeen = true;
+        lastAuthUid = nextUid;
+        session = { userId: nextUid };
+        if (identityChanged) {
+          data.comments = [];
+          commentCursorByStory.clear();
+          commentLoadInFlight.clear();
+          commentDraftByStory.clear();
+          replyDraftByComment.clear();
+        }
+
+        // Firebase refreshes ID tokens periodically. Keep shared data current,
+        // but do not rebuild an open editor and discard unsaved writing when
+        // the signed-in identity has not changed.
+        const preserveEditor = getRoute().name === "write" && !identityChanged;
+        refreshSharedData({ render: !preserveEditor });
+      });
+    }
+    try {
+      await initializeFirebaseBackend();
+    } catch (error) {
+      backendLoading = false;
+      backendError = error;
+      renderBackendState();
+    }
   }
 
   function closeAppDialog() {
@@ -504,7 +524,7 @@
               <span class="oauth-logo facebook">f</span><span>Continue with Facebook</span><span class="oauth-arrow">›</span>
             </button>
           </div>
-          <p class="auth-terms">Prototype sign-in opens the demo account. No external account is created.</p>
+          <p class="auth-terms">Firebase securely handles sign-in. Branchline stores only the profile needed for your writing account.</p>
         </div>
       `
     });
@@ -518,31 +538,27 @@
     openAuthModal(reason, action);
   }
 
-  function signIn(provider) {
-    let demoUser = data.users.find((user) => user.id === data.demoAuthProviders[provider]);
-    if (!demoUser) {
-      const firstName = provider === "facebook" ? "Facebook" : "Google";
-      demoUser = {
-        id: createId("user"),
-        name: `${firstName} member`,
-        handle: `@${provider}-member`,
-        initials: provider === "facebook" ? "FB" : "GG",
-        tone: provider === "facebook" ? "blue" : "rose",
-        role: "user",
-        bio: "A new Branchline member."
-      };
-      data.users.push(demoUser);
-      data.demoAuthProviders[provider] = demoUser.id;
+  async function signIn(provider) {
+    if (mutationInFlight) return;
+    mutationInFlight = true;
+    try {
+      const firebaseUser = await signInWithFirebase(provider);
+      await callBackend("ensureProfile", {
+        name: firebaseUser.displayName || "Branchline member",
+        avatarUrl: firebaseUser.photoURL || ""
+      });
+      await refreshSharedData({ render: false });
+      closeAppDialog();
+      const action = pendingAuthAction;
+      pendingAuthAction = null;
+      renderApp();
+      showToast(`Signed in with ${provider === "facebook" ? "Facebook" : "Google"}.`);
+      if (action) window.setTimeout(action, 80);
+    } catch (error) {
+      showToast(backendMessage(error), "info");
+    } finally {
+      mutationInFlight = false;
     }
-    saveData();
-    session = { userId: demoUser.id, provider };
-    saveSession();
-    closeAppDialog();
-    const action = pendingAuthAction;
-    pendingAuthAction = null;
-    renderApp();
-    showToast(`Signed in with ${provider === "facebook" ? "Facebook" : "Google"}. Welcome, ${demoUser.name.split(" ")[0]}!`);
-    if (action) window.setTimeout(action, 80);
   }
 
   function renderAuthWall(title, message) {
@@ -554,7 +570,7 @@
           <p>${escapeHTML(message)}</p>
           <button class="button button-primary" type="button" data-action="sign-in-route">Sign in with Google or Facebook</button>
           <br><br>
-          <a class="back-link" href="#story/s1">${icon("chevronLeft")} Keep reading as a guest</a>
+          <a class="back-link" href="${homeHref()}">${icon("chevronLeft")} Keep reading as a guest</a>
         </div>
       </section>
     `;
@@ -569,13 +585,12 @@
         <div class="user-menu">
           <div class="user-menu-header">
             ${avatar(user)}
-            <div><strong>${escapeHTML(user.name)}</strong><span>${escapeHTML(user.handle)} · ${user.role === "admin" ? "Administrator demo" : "Member demo"}</span></div>
+            <div><strong>${escapeHTML(user.name)}</strong><span>${escapeHTML(user.handle)} · ${user.role === "admin" ? "Administrator" : "Member"}</span></div>
           </div>
           <div class="user-menu-links">
             <a class="user-menu-link" href="#profile" data-action="close-dialog">${icon("user")} My profile</a>
             <a class="user-menu-link" href="#inbox" data-action="close-dialog">${icon("bell")} Inbox</a>
             ${user.role === "admin" ? `<a class="user-menu-link" href="#admin" data-action="close-dialog">${icon("shield")} Moderation</a>` : ""}
-            ${user.role === "admin" ? `<button class="user-menu-link" type="button" data-action="reset-demo">${icon("refresh")} Reset demo data</button>` : ""}
             <button class="user-menu-link danger" type="button" data-action="sign-out">${icon("logout")} Sign out</button>
           </div>
         </div>
@@ -598,6 +613,10 @@
   }
 
   function renderApp() {
+    if (!backendReady) {
+      renderBackendState();
+      return;
+    }
     const route = getRoute();
     renderHeader(route);
     renderFooter();
@@ -747,7 +766,7 @@
             <div class="story-topline">
               <div class="author-line">
                 ${avatar(author)}
-                <div class="author-copy"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(story.createdAt)} · ${escapeHTML(story.genre)}</span></div>
+                <div class="author-copy"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(formatDate(story.createdAt))} · ${escapeHTML(story.genre)}</span></div>
               </div>
               <button class="report-button" type="button" data-action="report-story" data-story-id="${story.id}" aria-label="Report this chapter">${icon("flag")}<span>Report</span></button>
             </div>
@@ -788,7 +807,7 @@
       const bodyPreview = isActive ? story.body.split(/\n\s*\n/)[0] : "This root chapter is currently unavailable, but its story tree remains accessible.";
       return `
         <article class="root-card" tabindex="0" role="link" data-story-id="${story.id}" aria-label="Read ${escapeHTML(isActive ? story.title : "this unavailable story")}">
-          <span class="root-card-top"><span>${isActive ? escapeHTML(story.genre) : "Unavailable"}</span><span>${isActive ? `${story.views.toLocaleString()} reads` : "Path preserved"}</span></span>
+          <span class="root-card-top"><span>${isActive ? escapeHTML(story.genre) : "Unavailable"}</span><span>${isActive ? `${story.likes.toLocaleString()} likes` : "Path preserved"}</span></span>
           <h3>${escapeHTML(isActive ? story.title : story.status === "reported" ? "Reported story" : "Deleted story")}</h3>
           <p>${escapeHTML(bodyPreview)}</p>
           <span class="root-card-footer">
@@ -801,7 +820,7 @@
   }
 
   function renderReader(requestedStoryId) {
-    const story = storyById(requestedStoryId) || storyById("s1") || visibleStories()[0];
+    const story = storyById(requestedStoryId) || storyById(homeStoryId());
     if (!story) {
       main.innerHTML = `<div class="empty-state"><h2>No stories yet</h2><button class="button button-primary" data-action="start-story">Start the first one</button></div>`;
       return;
@@ -816,7 +835,7 @@
             <h1>${isOwner ? "This chapter is still a draft." : "This chapter is not published."}</h1>
             <p>${isOwner ? "Continue editing it from your private drafts. It has not been added to the public story tree." : "Only the author can open this draft."}</p>
             ${isOwner ? `<a class="button button-primary" href="#edit/${story.id}">Edit draft</a>` : ""}
-            <br><br><a class="back-link" href="#story/${story.parentId || "s1"}">${icon("chevronLeft")} Return to published stories</a>
+            <br><br><a class="back-link" href="${story.parentId ? storyHref(story.parentId) : homeHref()}">${icon("chevronLeft")} Return to published stories</a>
           </div>
         </section>
       `;
@@ -838,6 +857,8 @@
             <button class="button button-coral" type="button" data-action="start-story">${icon("plus")} Start a story</button>
           </div>
         </section>
+
+        ${data.truncated ? `<div class="capacity-notice" role="status">${icon("alert")} <span>Branchline has reached its current 500-chapter reader capacity. Some older paths are temporarily unavailable; an administrator must complete the pagination upgrade before public launch.</span></div>` : ""}
 
         <section class="reader-stage" aria-label="Story reader">
           <div class="stage-grid">
@@ -914,7 +935,7 @@
 
   function navigateStory(direction) {
     const route = getRoute();
-    const story = storyById(route.storyId) || storyById("s1");
+    const story = storyById(route.storyId) || storyById(homeStoryId());
     if (!story) return;
     const siblings = siblingsOf(story);
     const index = siblings.findIndex((item) => item.id === story.id);
@@ -1008,28 +1029,14 @@
     routeTo(`story/${childId}`);
   }
 
-  function toggleStoryLike(storyId) {
+  async function toggleStoryLike(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
     if (!story || !user || story.status !== "active") return;
-    const index = story.likedBy.indexOf(user.id);
-    if (index >= 0) {
-      story.likedBy.splice(index, 1);
-      story.likes = Math.max(0, story.likes - 1);
-    } else {
-      story.likedBy.push(user.id);
-      story.likes += 1;
-      addNotification({
-        type: "like",
-        actorId: user.id,
-        recipientId: story.authorId,
-        storyId: story.id,
-        quote: story.title
-      });
-    }
-    saveData();
+    const result = await runMutation("toggleStoryLike", { storyId });
+    if (!result) return;
     renderApp();
-    if (index < 0) showToast("Added to your liked stories.");
+    if (result.liked) showToast("Added to your liked stories.");
   }
 
   function openShareDialog(storyId) {
@@ -1100,41 +1107,34 @@
     });
   }
 
-  function confirmReport(storyId) {
+  async function confirmReport(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
     if (!story || !user || story.status !== "active" || story.reportedBy.includes(user.id)) return;
-    story.reportedBy.push(user.id);
-    story.reportCount += 1;
-    if (story.reportCount > 3) {
-      const previousStatus = story.status;
-      story.status = "reported";
-      story.deletionSource = "moderation";
-      recordAudit("story_auto_hidden", story, previousStatus);
-    }
-    story.updatedAt = "Just now";
-    saveData();
+    const result = await runMutation("reportStory", { storyId });
+    if (!result) return;
     closeAppDialog();
     renderApp();
-    showToast(story.status === "reported" ? "Report recorded. This chapter is now hidden for review." : "Report recorded. Thank you for letting us know.");
+    showToast(result.status === "reported" ? "Report recorded. This chapter is now hidden for review." : "Report recorded. Thank you for letting us know.");
   }
 
   function renderComment(comment, isReply = false) {
     const author = userById(comment.authorId);
     const user = currentUser();
+    const deleted = comment.status !== "active";
     const liked = Boolean(user && comment.likedBy.includes(user.id));
     const replyTo = comment.replyToCommentId ? data.comments.find((item) => item.id === comment.replyToCommentId) : null;
     const replyToUser = replyTo ? userById(replyTo.authorId) : null;
     return `
-      <div class="comment-row" data-comment-id="${comment.id}">
+      <div class="comment-row ${deleted ? "deleted-comment" : ""}" data-comment-id="${comment.id}">
         ${avatar(author, "sm")}
         <div class="comment-content">
-          <div class="comment-meta"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(comment.createdAt)}</span></div>
-          <p class="comment-text">${isReply && replyToUser ? `<span class="replying-to">@${escapeHTML(replyToUser.name.split(" ")[0])}</span> ` : ""}${escapeHTML(comment.text)}</p>
-          <div class="comment-actions">
-            <button class="text-button ${liked ? "active" : ""}" type="button" data-comment-like="${comment.id}">${icon("thumbsUp")} ${comment.likes}</button>
+          <div class="comment-meta"><strong>${escapeHTML(author.name)}</strong><span>${escapeHTML(formatDate(comment.createdAt))}</span></div>
+          <p class="comment-text">${deleted ? "This comment was removed with its author's account." : `${isReply && replyToUser ? `<span class="replying-to">@${escapeHTML(replyToUser.name.split(" ")[0])}</span> ` : ""}${escapeHTML(comment.text)}`}</p>
+          ${deleted ? "" : `<div class="comment-actions">
+            <button class="text-button ${liked ? "active" : ""}" type="button" data-comment-like="${comment.id}" aria-pressed="${liked}" aria-label="${liked ? "Unlike" : "Like"} this comment, ${comment.likes} ${comment.likes === 1 ? "like" : "likes"}">${icon("thumbsUp")} ${comment.likes}</button>
             <button class="text-button" type="button" data-comment-reply="${comment.id}">${icon("reply")} Reply</button>
-          </div>
+          </div>`}
         </div>
       </div>
     `;
@@ -1143,16 +1143,27 @@
   function renderCommentsBody(storyId) {
     const story = storyById(storyId);
     if (!story) return "";
-    const comments = data.comments.filter((comment) => comment.storyId === storyId && comment.status === "active");
+    const comments = data.comments.filter((comment) => (
+      comment.storyId === storyId
+      && (comment.status === "active" || comment.deletionSource === "account")
+    ));
     const roots = comments.filter((comment) => !comment.parentCommentId);
     const user = currentUser();
-    const composer = user ? `
+    const loadState = commentLoadInFlight.get(storyId);
+    const loading = Boolean(loadState);
+    const replaceComposer = Boolean(loadState?.replaceComposer);
+    const nextCursor = commentCursorByStory.get(storyId);
+    const composer = user && replaceComposer ? `
+      <div class="comment-composer" aria-live="polite">
+        <div class="guest-comment-gate"><p>Loading the conversation…</p></div>
+      </div>
+    ` : user ? `
       <form class="comment-composer" id="comment-form" data-story-id="${storyId}">
         <div class="composer-row">
           ${avatar(user, "sm")}
           <div class="composer-field">
             <label class="sr-only" for="comment-text">Add a comment</label>
-            <textarea id="comment-text" name="comment" placeholder="Add to the conversation…" maxlength="600" required></textarea>
+            <textarea id="comment-text" name="comment" placeholder="Add to the conversation…" maxlength="600" required>${escapeHTML(commentDraftByStory.get(storyId) || "")}</textarea>
             <div class="composer-actions"><span class="composer-hint">Keep it kind and story-focused.</span><button class="button button-primary button-small" type="submit">Comment</button></div>
           </div>
         </div>
@@ -1166,11 +1177,11 @@
     return `
       <div class="comments-shell">
         <div class="comments-header">
-          <div><h2 id="comments-title">Comments <span>${comments.length}</span></h2><p>On “${escapeHTML(story.status === "active" ? story.title : "this chapter")}”</p></div>
+          <div><h2 id="comments-title">Comments <span>${Number(story.commentCount || 0)}</span></h2><p>On “${escapeHTML(story.status === "active" ? story.title : "this chapter")}”</p></div>
           <button class="plain-icon-button" type="button" data-action="close-comments" aria-label="Close comments">${icon("x")}</button>
         </div>
         ${composer}
-        <div class="comments-scroll">
+        <div class="comments-scroll" tabindex="-1">
           ${roots.length ? roots.map((comment) => {
             const replies = comments.filter((reply) => reply.parentCommentId === comment.id);
             const expanded = expandedReplyThreads.has(comment.id);
@@ -1185,15 +1196,18 @@
                 ` : ""}
                 ${user && replyBelongsHere ? `
                   <form class="inline-reply-form" data-root-comment-id="${comment.id}" data-reply-to-id="${target.id}">
-                    <textarea name="reply" maxlength="600" required aria-label="Reply to ${escapeHTML(userById(target.authorId).name)}" placeholder="Reply to ${escapeHTML(userById(target.authorId).name.split(" ")[0])}…"></textarea>
+                    <textarea name="reply" maxlength="600" required aria-label="Reply to ${escapeHTML(userById(target.authorId).name)}" placeholder="Reply to ${escapeHTML(userById(target.authorId).name.split(" ")[0])}…">${escapeHTML(replyDraftByComment.get(target.id) || "")}</textarea>
                     <button class="button button-primary button-small" type="submit">Reply</button>
                   </form>
                 ` : ""}
               </article>
             `;
-          }).join("") : `
+          }).join("") : loading ? `
+            <div class="empty-comments" aria-live="polite">${icon("clock")}<p>Loading comments…</p></div>
+          ` : `
             <div class="empty-comments">${icon("message")}<p>No comments yet. Start the conversation.</p></div>
           `}
+          ${nextCursor ? `<button class="button button-secondary" type="button" data-action="load-more-comments" data-story-id="${storyId}" ${loading ? "disabled" : ""}>${loading ? "Loading…" : "Load more comments"}</button>` : ""}
         </div>
       </div>
     `;
@@ -1202,9 +1216,119 @@
   function openComments(storyId) {
     activeCommentsStoryId = storyId;
     replyTargetId = null;
+    const loading = loadStoryComments(storyId, { reset: true });
     commentsDialog.innerHTML = renderCommentsBody(storyId);
     document.body.classList.add("dialog-open");
     if (!commentsDialog.open) commentsDialog.showModal();
+    void loading;
+  }
+
+  function captureCommentsUi() {
+    if (!commentsDialog.open) return null;
+    const active = document.activeElement;
+    const replyForm = active?.closest?.(".inline-reply-form");
+    const commentDraft = commentsDialog.querySelector("#comment-text")?.value || "";
+    const replyDrafts = [...commentsDialog.querySelectorAll(".inline-reply-form")].map((form) => ({
+      replyToId: form.dataset.replyToId,
+      value: form.querySelector("textarea")?.value || ""
+    }));
+    if (activeCommentsStoryId) commentDraftByStory.set(activeCommentsStoryId, commentDraft);
+    replyDrafts.forEach(({ replyToId, value }) => replyDraftByComment.set(replyToId, value));
+    let focus = null;
+    if (active?.id === "comment-text") focus = { kind: "comment" };
+    else if (active?.matches?.('[data-action="load-more-comments"]')) focus = { kind: "load-more" };
+    else if (active?.matches?.("[data-comment-like]")) focus = { kind: "comment-like", id: active.dataset.commentLike };
+    else if (active?.matches?.("[data-comment-reply]")) focus = { kind: "comment-reply", id: active.dataset.commentReply };
+    else if (active?.matches?.("[data-toggle-replies]")) focus = { kind: "toggle-replies", id: active.dataset.toggleReplies };
+    else if (replyForm) focus = { kind: "reply", replyToId: replyForm.dataset.replyToId };
+    return {
+      scrollTop: commentsDialog.querySelector(".comments-scroll")?.scrollTop || 0,
+      commentDraft,
+      replyDrafts,
+      focus
+    };
+  }
+
+  function restoreCommentsUi(state) {
+    if (!state || !commentsDialog.open) return;
+    const commentField = commentsDialog.querySelector("#comment-text");
+    if (commentField) commentField.value = state.commentDraft;
+    state.replyDrafts.forEach(({ replyToId, value }) => {
+      const field = commentsDialog.querySelector(`.inline-reply-form[data-reply-to-id="${replyToId}"] textarea`);
+      if (field) field.value = value;
+    });
+    const scroll = commentsDialog.querySelector(".comments-scroll");
+    let focusTarget = null;
+    if (state.focus?.kind === "comment") focusTarget = commentField;
+    if (state.focus?.kind === "reply") {
+      focusTarget = commentsDialog.querySelector(`.inline-reply-form[data-reply-to-id="${state.focus.replyToId}"] textarea`);
+    }
+    if (state.focus?.kind === "load-more") {
+      focusTarget = commentsDialog.querySelector('[data-action="load-more-comments"]') || scroll;
+    }
+    if (state.focus?.kind === "comment-like") {
+      focusTarget = commentsDialog.querySelector(`[data-comment-like="${state.focus.id}"]`);
+    }
+    if (state.focus?.kind === "comment-reply") {
+      focusTarget = commentsDialog.querySelector(`[data-comment-reply="${state.focus.id}"]`);
+    }
+    if (state.focus?.kind === "toggle-replies") {
+      focusTarget = commentsDialog.querySelector(`[data-toggle-replies="${state.focus.id}"]`);
+    }
+    focusTarget?.focus({ preventScroll: true });
+    if (scroll) scroll.scrollTop = state.scrollTop;
+  }
+
+  async function loadStoryComments(storyId, options = {}) {
+    const reset = options.reset === true;
+    const preserveUi = options.preserveUi ?? !reset;
+    const silent = options.silent === true;
+    if (commentLoadInFlight.has(storyId)) return false;
+    const cursor = reset ? null : commentCursorByStory.get(storyId);
+    if (!reset && !cursor) return false;
+    const uiState = preserveUi ? captureCommentsUi() : null;
+    const loadToken = { id: Symbol(storyId), replaceComposer: reset && !preserveUi };
+    commentLoadInFlight.set(storyId, loadToken);
+    if (loadToken.replaceComposer) {
+      refreshComments();
+    } else {
+      const button = commentsDialog.querySelector('[data-action="load-more-comments"]');
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Loading…";
+      }
+    }
+    try {
+      const result = await callBackend("getStoryComments", {
+        storyId,
+        ...(cursor ? { cursor } : {})
+      });
+      if (commentLoadInFlight.get(storyId) !== loadToken) return false;
+      if (reset) data.comments = data.comments.filter((comment) => comment.storyId !== storyId);
+      for (const comment of result.comments || []) {
+        comment.likedBy = Array.isArray(comment.likedBy) ? comment.likedBy : [];
+        comment.likes = Number(comment.likes || 0);
+        const index = data.comments.findIndex((candidate) => candidate.id === comment.id);
+        if (index >= 0) data.comments[index] = comment;
+        else data.comments.push(comment);
+      }
+      for (const profile of result.users || []) {
+        const index = data.users.findIndex((candidate) => candidate.id === profile.id);
+        if (index >= 0) data.users[index] = { ...data.users[index], ...profile };
+        else data.users.push({ ...profile, role: "user" });
+      }
+      commentCursorByStory.set(storyId, result.nextCursor || null);
+      return true;
+    } catch (error) {
+      if (!silent) showToast(backendMessage(error, "Comments could not be loaded. Try again."), "info");
+      return false;
+    } finally {
+      if (commentLoadInFlight.get(storyId) === loadToken) {
+        commentLoadInFlight.delete(storyId);
+        refreshComments();
+        restoreCommentsUi(uiState);
+      }
+    }
   }
 
   function refreshComments() {
@@ -1220,27 +1344,29 @@
     if (!appDialog.open) document.body.classList.remove("dialog-open");
   }
 
+  function cacheComment(comment) {
+    const normalized = {
+      ...comment,
+      likedBy: Array.isArray(comment.likedBy) ? comment.likedBy : [],
+      likes: Number(comment.likes || 0)
+    };
+    const index = data.comments.findIndex((candidate) => candidate.id === normalized.id);
+    if (index >= 0) data.comments[index] = normalized;
+    else data.comments.push(normalized);
+    return normalized;
+  }
+
   function toggleCommentLike(commentId) {
-    requireAuth(() => {
+    requireAuth(async () => {
       const comment = data.comments.find((item) => item.id === commentId);
       const user = currentUser();
       if (!comment || !user || comment.status !== "active") return;
-      const index = comment.likedBy.indexOf(user.id);
-      if (index >= 0) {
-        comment.likedBy.splice(index, 1);
-        comment.likes = Math.max(0, comment.likes - 1);
-      } else {
-        comment.likedBy.push(user.id);
-        comment.likes += 1;
-        addNotification({
-          type: "comment_like",
-          actorId: user.id,
-          recipientId: comment.authorId,
-          storyId: comment.storyId,
-          quote: comment.text
-        });
-      }
-      saveData();
+      const storyId = comment.storyId;
+      const result = await runMutation("toggleCommentLike", { commentId });
+      if (!result) return;
+      comment.likes = Number(result.likes || 0);
+      comment.likedBy = result.liked ? [user.id] : [];
+      await loadStoryComments(storyId, { reset: true, preserveUi: true, silent: true });
       refreshComments();
     }, "Sign in to like comments.");
   }
@@ -1249,72 +1375,44 @@
     requireAuth(() => {
       const comment = data.comments.find((item) => item.id === commentId);
       if (!comment) return;
+      const uiState = captureCommentsUi();
       replyTargetId = commentId;
       const rootId = comment.parentCommentId || comment.id;
       expandedReplyThreads.add(rootId);
       refreshComments();
+      restoreCommentsUi(uiState);
       requestAnimationFrame(() => commentsDialog.querySelector(".inline-reply-form textarea")?.focus());
     }, "Sign in to reply to this comment.");
   }
 
-  function addComment(storyId, text) {
+  async function addComment(storyId, text) {
     const user = currentUser();
     const story = storyById(storyId);
     if (!user || !story || story.status !== "active" || !text.trim()) return;
-    data.comments.unshift({
-      id: createId("comment"),
-      storyId,
-      parentCommentId: null,
-      replyToCommentId: null,
-      authorId: user.id,
-      status: "active",
-      text: text.trim(),
-      createdAt: "Just now",
-      likes: 0,
-      likedBy: []
-    });
-    addNotification({
-      type: "comment",
-      actorId: user.id,
-      recipientId: story.authorId,
-      storyId,
-      quote: text.trim()
-    });
-    saveData();
+    const result = await runMutation("addComment", { storyId, text: text.trim() });
+    if (!result) return;
+    cacheComment(result);
+    commentDraftByStory.delete(storyId);
+    await loadStoryComments(storyId, { reset: true, silent: true });
     refreshComments();
     renderHeader(getRoute());
     showToast("Comment posted.");
   }
 
-  function addReply(rootCommentId, replyToId, text) {
+  async function addReply(rootCommentId, replyToId, text) {
     const user = currentUser();
     const target = data.comments.find((item) => item.id === replyToId);
     const story = target ? storyById(target.storyId) : null;
     if (!user || !target || target.status !== "active" || story?.status !== "active" || !text.trim()) return;
     const verifiedRootId = target.parentCommentId || target.id;
     if (rootCommentId !== verifiedRootId) return;
-    data.comments.push({
-      id: createId("comment"),
-      storyId: target.storyId,
-      parentCommentId: verifiedRootId,
-      replyToCommentId: replyToId,
-      authorId: user.id,
-      status: "active",
-      text: text.trim(),
-      createdAt: "Just now",
-      likes: 0,
-      likedBy: []
-    });
-    addNotification({
-      type: "reply",
-      actorId: user.id,
-      recipientId: target.authorId,
-      storyId: target.storyId,
-      quote: text.trim()
-    });
+    const result = await runMutation("addReply", { replyToCommentId: replyToId, text: text.trim() });
+    if (!result) return;
+    cacheComment(result);
+    replyDraftByComment.delete(replyToId);
     replyTargetId = null;
     expandedReplyThreads.add(verifiedRootId);
-    saveData();
+    await loadStoryComments(target.storyId, { reset: true, silent: true });
     refreshComments();
     showToast("Reply posted.");
   }
@@ -1332,7 +1430,7 @@
     const continuing = route.mode === "continue";
 
     if ((editing || continuing) && !sourceStory) {
-      main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><h1>Chapter not found</h1><p>This chapter may no longer exist.</p><a class="button button-primary" href="#story/s1">Back to stories</a></div></div>`;
+      main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><h1>Chapter not found</h1><p>This chapter may no longer exist.</p><a class="button button-primary" href="${homeHref()}">Back to stories</a></div></div>`;
       return;
     }
 
@@ -1358,7 +1456,7 @@
     const isRootMode = !parentStory;
     const backHref = editing && sourceStory.status === "draft"
       ? "#profile"
-      : editing || continuing ? `#story/${sourceStory.id}` : "#story/s1";
+      : editing || continuing ? storyHref(sourceStory.id) : homeHref();
 
     main.innerHTML = `
       <div class="writer-page">
@@ -1366,7 +1464,7 @@
           <div class="writer-topbar-inner">
             <a class="back-link" href="${backHref}">${icon("chevronLeft")} Back</a>
             <div class="writer-heading"><h1>${escapeHTML(modeTitle)}</h1><p>${escapeHTML(modeSubtitle)}</p></div>
-            <span class="save-state" id="save-state"><span class="save-state-dot"></span>${formStory ? `Last saved ${escapeHTML(formStory.updatedAt)}` : "Draft ready"}</span>
+            <span class="save-state" id="save-state"><span class="save-state-dot"></span>${formStory ? `Last saved ${escapeHTML(formatDate(formStory.updatedAt))}` : "Draft ready"}</span>
             <button class="button button-secondary button-small" type="button" data-action="preview-draft">${icon("eye")} Preview</button>
           </div>
         </div>
@@ -1377,7 +1475,7 @@
               <div class="panel-header"><div><h2>Previous chapter</h2><p>Read-only reference · scrolls independently</p></div><span class="level-tag">Level ${getLevel(parentStory)}</span></div>
               ${parentStory.status === "active" ? `
                 <div class="reference-scroll">
-                  <div class="author-line">${avatar(userById(parentStory.authorId), "sm")}<div class="author-copy"><strong>${escapeHTML(userById(parentStory.authorId).name)}</strong><span>${escapeHTML(parentStory.createdAt)}</span></div></div>
+                  <div class="author-line">${avatar(userById(parentStory.authorId), "sm")}<div class="author-copy"><strong>${escapeHTML(userById(parentStory.authorId).name)}</strong><span>${escapeHTML(formatDate(parentStory.createdAt))}</span></div></div>
                   <h3>${escapeHTML(parentStory.title)}</h3>
                   <div class="reference-story-body">${renderParagraphs(parentStory.body)}</div>
                 </div>
@@ -1409,7 +1507,7 @@
 
                 <div class="field-group">
                   <div class="field-label-row"><label class="field-label" for="story-body-input">Story</label><span class="field-count" id="word-count">${wordCount(formStory?.body || "")} words</span></div>
-                  <textarea class="text-area" id="story-body-input" name="body" minlength="40" maxlength="8000" placeholder="Write what happens next…" required>${escapeHTML(formStory?.body || "")}</textarea>
+                  <textarea class="text-area" id="story-body-input" name="body" maxlength="8000" placeholder="Write what happens next…" required>${escapeHTML(formStory?.body || "")}</textarea>
                 </div>
 
                 <div class="field-group">
@@ -1459,13 +1557,16 @@
     return true;
   }
 
-  function saveStoryFromEditor(asDraft = false) {
+  async function saveStoryFromEditor(asDraft = false) {
     const form = document.getElementById("story-editor");
     const user = currentUser();
     const values = readEditorValues();
     if (!form || !user || !validateEditor(values, asDraft)) return;
     const mode = form.dataset.mode;
     const sourceId = form.dataset.storyId;
+    const payload = { ...values };
+    let parentId = null;
+    let wasDraft = false;
 
     if (mode === "edit") {
       const story = storyById(sourceId);
@@ -1475,68 +1576,33 @@
           showToast("Published chapters stay live while editing. Use Save changes when you're ready.", "info");
           return;
         }
-        Object.assign(story, values, { status: "draft", updatedAt: "Just now" });
-        saveData();
-        showToast("Draft updated.");
-        routeTo("profile");
-        return;
+        payload.asDraft = true;
       }
-      const wasDraft = story.status === "draft";
-      Object.assign(story, values, { status: "active", updatedAt: "Just now" });
-      if (wasDraft && story.parentId) {
-        preferredChildByParent[story.parentId] = story.id;
-        savePreferredBranches();
-        const parent = storyById(story.parentId);
-        addNotification({
-          type: "continuation",
-          actorId: user.id,
-          recipientId: parent?.authorId,
-          storyId: story.id,
-          targetStoryId: parent?.id,
-          quote: story.title
-        });
-      }
-      saveData();
-      showToast(wasDraft ? "Draft published." : "Changes published.");
-      routeTo(`story/${story.id}`);
-      return;
+      wasDraft = story.status === "draft";
+      parentId = story.parentId || null;
+      payload.storyId = story.id;
+      if (!asDraft && wasDraft) payload.publish = true;
+    } else {
+      const parent = mode === "continue" ? storyById(sourceId) : null;
+      if (mode === "continue" && (!parent || parent.status !== "active")) return;
+      parentId = parent?.id || null;
+      if (parentId) payload.parentId = parentId;
+      if (asDraft) payload.asDraft = true;
     }
 
-    const parent = mode === "continue" ? storyById(sourceId) : null;
-    const id = createId("story");
-    const story = {
-      id,
-      parentId: parent?.id || null,
-      rootId: parent?.rootId || id,
-      authorId: user.id,
-      status: asDraft ? "draft" : "active",
-      reportCount: 0,
-      reportedBy: [],
-      ...values,
-      createdAt: "Just now",
-      updatedAt: "Just now",
-      likes: 0,
-      likedBy: [],
-      views: 1
-    };
-    data.stories.push(story);
-    if (parent && !asDraft) {
-      addNotification({
-        type: "continuation",
-        actorId: user.id,
-        recipientId: parent.authorId,
-        storyId: story.id,
-        targetStoryId: parent.id,
-        quote: story.title
-      });
-    }
-    saveData();
-    if (parent && !asDraft) {
-      preferredChildByParent[parent.id] = story.id;
+    const result = await runMutation("saveStory", payload);
+    if (!result) return;
+    if (parentId && result.status === "active") {
+      preferredChildByParent[parentId] = result.storyId;
       savePreferredBranches();
     }
-    showToast(asDraft ? "Draft saved to your profile." : parent ? "Your continuation is live." : "Your new story is live.");
-    routeTo(asDraft ? "profile" : `story/${story.id}`);
+    if (result.status === "draft") {
+      showToast(result.created ? "Draft saved to your profile." : "Draft updated.");
+      routeTo("profile");
+      return;
+    }
+    showToast(wasDraft ? "Draft published." : mode === "edit" ? "Changes published." : parentId ? "Your continuation is live." : "Your new story is live.");
+    routeTo(`story/${result.storyId}`);
   }
 
   function previewDraft() {
@@ -1584,7 +1650,7 @@
                 <span>${icon("heart")} ${story.likes} likes</span>
                 <span>${icon("message")} ${commentCount(story.id)} comments</span>
                 <span>${icon("branch")} ${childrenOf(story.id).length} continuations</span>
-                <span>${icon("clock")} Updated ${escapeHTML(story.updatedAt)}</span>
+                <span>${icon("clock")} Updated ${escapeHTML(formatDate(story.updatedAt))}</span>
               </div>
             </div>
             <div class="story-list-actions">
@@ -1624,7 +1690,7 @@
             <div class="profile-info">
               <h2>${escapeHTML(user.name)}</h2>
               <p style="margin:2px 0 0;color:var(--muted);font-size:.84rem">${escapeHTML(user.handle)} · ${escapeHTML(user.bio || "")}</p>
-              <span class="profile-role">${icon(user.role === "admin" ? "shield" : "user")} ${user.role === "admin" ? "Administrator demo account" : "Member demo account"}</span>
+              <span class="profile-role">${icon(user.role === "admin" ? "shield" : "user")} ${user.role === "admin" ? "Administrator" : "Member"}</span>
             </div>
             <a class="button button-primary" href="#write/start">${icon("plus")} New story</a>
             <div class="profile-stats">
@@ -1672,34 +1738,22 @@
     });
   }
 
-  function deleteStory(storyId) {
+  async function deleteStory(storyId) {
     const story = storyById(storyId);
     const user = currentUser();
     if (!story || !user || story.authorId !== user.id || !["active", "draft"].includes(story.status)) return;
-    if (story.status === "draft") {
-      data.stories = data.stories.filter((candidate) => candidate.id !== story.id);
-      data.comments = data.comments.filter((comment) => comment.storyId !== story.id);
-      delete preferredChildByParent[story.id];
+    const wasDraft = story.status === "draft";
+    const result = await runMutation("deleteStory", { storyId });
+    if (!result) return;
+    if (result.hardDeleted) {
+      Object.entries(preferredChildByParent).forEach(([parentId, childId]) => {
+        if (parentId === storyId || childId === storyId) delete preferredChildByParent[parentId];
+      });
       savePreferredBranches();
-      saveData();
-      closeAppDialog();
-      renderProfile();
-      showToast("Draft permanently deleted.");
-      return;
     }
-    story.status = "deleted";
-    story.deletionSource = "author";
-    story.updatedAt = "Just now";
-    data.comments.forEach((comment) => {
-      if (comment.storyId === story.id && comment.status === "active") {
-        comment.status = "deleted";
-        comment.deletionSource = "story";
-      }
-    });
-    saveData();
     closeAppDialog();
     renderProfile();
-    showToast("Chapter deleted. Its branch connection was preserved.");
+    showToast(wasDraft ? "Draft permanently deleted." : "Chapter deleted. Its branch connection was preserved.");
   }
 
   function openAccountDataDialog() {
@@ -1707,71 +1761,47 @@
       title: "Account data",
       subtitle: "Your story tree relationships are preserved if you leave.",
       body: `
-        <p>Deleting the demo account removes the public content of every story you authored, all comments beneath those stories, and comments you wrote elsewhere.</p>
+        <p>Deleting your account removes the public content of every story you authored, all comments beneath those stories, and your profile information.</p>
         <p>Descendant stories written by other members remain available, connected through deleted placeholders.</p>
+        <p>You will confirm your identity with Google or Facebook before the deletion begins. This cannot be undone.</p>
       `,
       actions: `
         <button class="button button-secondary" type="button" data-action="close-dialog">Cancel</button>
-        <button class="button button-danger" type="button" data-action="delete-account">Delete demo account data</button>
+        <button class="button button-danger" type="button" data-action="delete-account">Delete my account</button>
       `
     });
   }
 
-  function deleteAccountData() {
+  async function deleteAccountData() {
     const user = currentUser();
     if (!user) return;
-    const ownedStories = data.stories.filter((story) => story.authorId === user.id);
-    const ownedIds = new Set(ownedStories.map((story) => story.id));
-    const ownedDraftIds = new Set(ownedStories.filter((story) => story.status === "draft").map((story) => story.id));
-    data.stories.forEach((story) => {
-      if (ownedIds.has(story.id) && !ownedDraftIds.has(story.id)) {
-        story.status = "deleted";
-        story.deletionSource = "account";
-        story.title = "Deleted chapter";
-        story.deck = "";
-        story.body = "";
-        story.genre = "Unavailable";
-        story.reportCount = 0;
-        story.reportedBy = [];
-        story.updatedAt = "Just now";
-        story.authorId = null;
-      }
-      const likeIndex = story.likedBy.indexOf(user.id);
-      if (likeIndex >= 0) {
-        story.likedBy.splice(likeIndex, 1);
-        story.likes = Math.max(0, story.likes - 1);
-      }
-    });
-    data.stories = data.stories.filter((story) => !ownedDraftIds.has(story.id));
-    data.comments = data.comments.filter((comment) => !ownedIds.has(comment.storyId) && comment.authorId !== user.id);
-    data.comments.forEach((comment) => {
-      const likeIndex = comment.likedBy.indexOf(user.id);
-      if (likeIndex >= 0) {
-        comment.likedBy.splice(likeIndex, 1);
-        comment.likes = Math.max(0, comment.likes - 1);
-      }
-    });
-    data.auditLog.push({ id: createId("audit"), action: "account_erased", actorId: null, storyId: null, createdAt: new Date().toISOString() });
-    Object.entries(data.demoAuthProviders).forEach(([provider, userId]) => {
-      if (userId === user.id) delete data.demoAuthProviders[provider];
-    });
-    Object.entries(preferredChildByParent).forEach(([parentId, childId]) => {
-      if (ownedDraftIds.has(parentId) || ownedDraftIds.has(childId)) delete preferredChildByParent[parentId];
-    });
-    data.users = data.users.filter((candidate) => candidate.id !== user.id);
-    data.notifications = data.notifications.filter((notification) => (
-      notification.recipientId !== user.id
-      && notification.actorId !== user.id
-      && !ownedIds.has(notification.storyId)
-      && !ownedIds.has(notification.targetStoryId)
-    ));
-    savePreferredBranches();
-    saveData();
+    if (mutationInFlight) return;
+    setMutationBusy(true);
+    let result;
+    try {
+      await reauthenticateFirebaseUser();
+      result = await callBackend("deleteAccount");
+    } catch (error) {
+      showToast(backendMessage(error, "Branchline could not confirm and delete your account."), "info");
+      setMutationBusy(false);
+      return;
+    }
+    try {
+      await signOutFirebase();
+    } catch {
+      // The backend has already removed the Firebase Auth user.
+    }
+    setMutationBusy(false);
     session = { userId: null };
-    saveSession();
+    data = emptyData();
+    backendReady = false;
+    backendLoading = true;
     closeAppDialog();
-    routeTo("story/s1");
-    showToast("Demo account data deleted; story connections remain.");
+    renderBackendState();
+    const refreshed = await refreshSharedData({ render: false });
+    if (!refreshed) return;
+    routeTo(homeHref());
+    showToast(`Account deleted. ${result.preservedStoryNodes || 0} published story connections remain.`);
   }
 
   function notificationLabel(notification) {
@@ -1805,7 +1835,7 @@
               <p><strong>${escapeHTML(actor.name)}</strong> ${notificationLabel(notification)}${story ? ` in <strong>“${storyIsAvailable ? escapeHTML(story.title) : "an unavailable chapter"}”</strong>` : ""}.</p>
               ${notification.quote && storyIsAvailable ? `<p class="notification-quote">“${escapeHTML(notification.quote)}”</p>` : ""}
             </div>
-            <span class="notification-time">${escapeHTML(notification.createdAt)}</span>
+            <span class="notification-time">${escapeHTML(formatDate(notification.createdAt))}</span>
           </li>
         `;
       }).join("")}
@@ -1845,30 +1875,40 @@
               ${filterButton("like", "Likes")}
             </aside>
             <section class="inbox-main">
-              <div class="inbox-main-header"><h2>${inboxFilter === "all" ? "All activity" : inboxFilter === "unread" ? "Unread" : `${formatStatus(inboxFilter)}s`}</h2><span class="status-badge active">${filteredNotifications().length} items</span></div>
+              <div class="inbox-main-header"><h2>${({ all: "All activity", unread: "Unread", continuation: "Continuations", reply: "Replies", like: "Likes" })[inboxFilter] || "Activity"}</h2><span class="status-badge active">${filteredNotifications().length} items</span></div>
               <div id="notification-list">${renderNotificationList()}</div>
             </section>
           </div>
         </div>
       </div>
     `;
+    if (counts.unread && !inboxReadUpdateInFlight) {
+      inboxReadUpdateInFlight = true;
+      queueMicrotask(async () => {
+        const result = await runMutation("markNotificationsRead");
+        inboxReadUpdateInFlight = false;
+        if (!result || getRoute().name !== "inbox") return;
+        renderHeader(getRoute());
+        renderInbox();
+      });
+    }
   }
 
-  function openNotification(notificationId) {
+  async function openNotification(notificationId) {
     const user = currentUser();
     const notification = data.notifications.find((item) => item.id === notificationId && item.recipientId === user?.id);
     if (!notification) return;
-    notification.read = true;
-    saveData();
+    const result = await runMutation("markNotificationsRead", { notificationIds: [notificationId] });
+    if (!result) return;
     routeTo(`story/${notification.storyId}`);
   }
 
-  function markAllNotificationsRead() {
-    notificationsForUser().forEach((item) => { item.read = true; });
-    saveData();
+  async function markAllNotificationsRead() {
+    const result = await runMutation("markNotificationsRead");
+    if (!result) return;
     renderInbox();
     renderHeader(getRoute());
-    showToast("Everything is marked as read.");
+    showToast(result.updated ? "Everything is marked as read." : "You have no unread notifications.");
   }
 
   function adminFilteredStories() {
@@ -1891,7 +1931,7 @@
         const restorable = (story.status === "reported" || story.status === "deleted") && story.deletionSource !== "account";
         return `
           <li class="admin-row">
-            <div class="admin-story-cell"><strong>${escapeHTML(story.title)}</strong><span>${story.id} · Level ${getLevel(story)} · Updated ${escapeHTML(story.updatedAt)}</span></div>
+            <div class="admin-story-cell"><strong>${escapeHTML(story.title)}</strong><span>${story.id} · Level ${getLevel(story)} · Updated ${escapeHTML(formatDate(story.updatedAt))}</span></div>
             <div class="admin-author">${avatar(author, "sm")}<span>${escapeHTML(author.name)}</span></div>
             <span class="status-badge ${story.status}">${formatStatus(story.status)}</span>
             <span class="report-count" aria-label="${story.reportCount} reports">${story.reportCount}</span>
@@ -1912,7 +1952,7 @@
       return;
     }
     if (user.role !== "admin") {
-      main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><div class="auth-mark">${icon("lock")}</div><h1>Administrator access only</h1><p>Your account does not have permission to open moderation tools.</p><a class="button button-primary" href="#story/s1">Return to stories</a></div></div>`;
+      main.innerHTML = `<div class="auth-wall"><div class="auth-wall-card"><div class="auth-mark">${icon("lock")}</div><h1>Administrator access only</h1><p>Your account does not have permission to open moderation tools.</p><a class="button button-primary" href="${homeHref()}">Return to stories</a></div></div>`;
       return;
     }
 
@@ -1952,7 +1992,7 @@
             <div class="admin-list-header"><span>Chapter</span><span>Author</span><span>Status</span><span>Reports</span><span style="text-align:right">Actions</span></div>
             <div id="admin-list-body">${renderAdminList()}</div>
           </section>
-          <p class="audit-note">${icon("info")} Restoring or hiding a chapter creates a local audit event in this prototype. Public readers never see report totals or hidden content.</p>
+          <p class="audit-note">${icon("info")} Restoring or hiding a chapter is recorded in the moderation audit log. Public readers never see report totals or hidden content.</p>
         </div>
       </div>
     `;
@@ -1973,7 +2013,7 @@
           <div class="metadata-item"><span>Author</span><strong>${escapeHTML(author.name)}</strong></div>
           <div class="metadata-item"><span>Reports</span><strong>${story.reportCount} distinct reports</strong></div>
           <div class="metadata-item"><span>Tree position</span><strong>Level ${getLevel(story)} · ${childrenOf(story.id).length} direct children</strong></div>
-          <div class="metadata-item"><span>Last updated</span><strong>${escapeHTML(story.updatedAt)}</strong></div>
+          <div class="metadata-item"><span>Last updated</span><strong>${escapeHTML(formatDate(story.updatedAt))}</strong></div>
         </div>
       `,
       actions: `
@@ -1983,30 +2023,19 @@
     });
   }
 
-  function restoreStory(storyId) {
+  async function restoreStory(storyId) {
     const story = storyById(storyId);
     if (!story || currentUser()?.role !== "admin" || !["reported", "deleted"].includes(story.status)) return;
     if (story.deletionSource === "account") {
       showToast("Account-erased content cannot be restored.", "info");
       return;
     }
-    const previousStatus = story.status;
-    story.status = "active";
-    story.deletionSource = null;
-    story.reportCount = 0;
-    story.reportedBy = [];
-    story.updatedAt = "Just now";
-    data.comments.forEach((comment) => {
-      if (comment.storyId === story.id && comment.status === "deleted" && comment.deletionSource === "story") {
-        comment.status = "active";
-        comment.deletionSource = null;
-      }
-    });
-    recordAudit("story_restored", story, previousStatus);
-    saveData();
+    const title = story.title;
+    const result = await runMutation("moderateStory", { storyId, action: "restore" });
+    if (!result) return;
     closeAppDialog();
     renderApp();
-    showToast(`“${story.title}” was restored.`);
+    showToast(`“${title}” was restored.`);
   }
 
   function confirmAdminHide(storyId) {
@@ -2020,16 +2049,11 @@
     });
   }
 
-  function adminHide(storyId) {
+  async function adminHide(storyId) {
     const story = storyById(storyId);
     if (!story || currentUser()?.role !== "admin" || story.status !== "active") return;
-    const previousStatus = story.status;
-    story.status = "reported";
-    story.deletionSource = "moderation";
-    story.reportCount = Math.max(4, story.reportCount);
-    story.updatedAt = "Just now";
-    recordAudit("story_hidden", story, previousStatus);
-    saveData();
+    const result = await runMutation("moderateStory", { storyId, action: "hide" });
+    if (!result) return;
     closeAppDialog();
     renderApp();
     showToast("Chapter hidden for review; the branch is still connected.");
@@ -2074,27 +2098,27 @@
     });
   }
 
-  function resetDemoData() {
-    if (currentUser()?.role !== "admin") return;
-    data = cloneData(initialData);
-    preferredChildByParent = {};
-    saveData();
-    savePreferredBranches();
-    closeAppDialog();
-    renderApp();
-    showToast("Demo stories and moderation states were reset.");
-  }
-
-  function cloneData(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  function signOut() {
-    session = { userId: null };
-    saveSession();
-    closeAppDialog();
-    renderApp();
-    showToast("Signed out. You can keep reading as a guest.");
+  async function signOut() {
+    if (mutationInFlight) return;
+    setMutationBusy(true);
+    try {
+      await signOutFirebase();
+      session = { userId: null };
+      closeAppDialog();
+      const refreshed = await refreshSharedData({ render: false });
+      if (!refreshed) {
+        backendReady = false;
+        renderBackendState();
+        return;
+      }
+      routeTo(homeHref());
+      renderApp();
+      showToast("Signed out. You can keep reading as a guest.");
+    } catch (error) {
+      showToast(backendMessage(error, "Branchline could not sign you out. Try again."), "info");
+    } finally {
+      setMutationBusy(false);
+    }
   }
 
   document.addEventListener("click", (event) => {
@@ -2145,10 +2169,12 @@
     const toggleReplies = event.target.closest("[data-toggle-replies]");
     if (toggleReplies) {
       event.preventDefault();
+      const uiState = captureCommentsUi();
       const id = toggleReplies.dataset.toggleReplies;
       if (expandedReplyThreads.has(id)) expandedReplyThreads.delete(id);
       else expandedReplyThreads.add(id);
       refreshComments();
+      restoreCommentsUi(uiState);
       return;
     }
 
@@ -2217,13 +2243,14 @@
         case "search": openSearch(); break;
         case "close-dialog": closeAppDialog(); break;
         case "sign-out": signOut(); break;
-        case "reset-demo": resetDemoData(); break;
+        case "retry-backend": bootBackend(); break;
         case "about": openInfoDialog("about"); break;
         case "community-guidelines": openInfoDialog("guidelines"); break;
         case "start-story": requireAuth(() => routeTo("write/start"), "Sign in to start a new story."); break;
         case "continue-story": requireAuth(() => routeTo(`write/continue/${storyId}`), "Sign in to continue this story."); break;
         case "like-story": requireAuth(() => toggleStoryLike(storyId), "Sign in to like this chapter."); break;
         case "open-comments": openComments(storyId); break;
+        case "load-more-comments": loadStoryComments(storyId); break;
         case "share-story": openShareDialog(storyId); break;
         case "report-story": requireAuth(() => openReportDialog(storyId), "Sign in before reporting a chapter."); break;
         case "confirm-report": confirmReport(storyId); break;
@@ -2254,7 +2281,7 @@
       return;
     }
 
-    const storyTarget = event.target.closest("[data-story-id]");
+    const storyTarget = event.target.closest('[role="link"][data-story-id], button[data-story-id]:not([data-action])');
     if (storyTarget) {
       event.preventDefault();
       closeAppDialog();
@@ -2280,6 +2307,13 @@
   });
 
   document.addEventListener("input", (event) => {
+    if (event.target.id === "comment-text" && activeCommentsStoryId) {
+      commentDraftByStory.set(activeCommentsStoryId, event.target.value);
+    }
+    const replyForm = event.target.closest?.(".inline-reply-form");
+    if (replyForm && event.target.matches("textarea")) {
+      replyDraftByComment.set(replyForm.dataset.replyToId, event.target.value);
+    }
     if (event.target.id === "global-search") {
       renderSearchResults(event.target.value);
       return;
@@ -2384,6 +2418,6 @@
     });
   });
 
-  if (!location.hash) history.replaceState(null, "", "#story/s1");
-  renderApp();
+  if (!location.hash) history.replaceState(null, "", "#story");
+  bootBackend();
 })();

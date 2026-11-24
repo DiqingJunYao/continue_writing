@@ -1,6 +1,6 @@
 # Branchline
 
-Branchline is a polished front-end prototype for a collaborative, branching fiction platform. Readers move vertically through a story's ancestry and continuations, and horizontally between alternate versions that share the same parent.
+Branchline is a collaborative, branching fiction platform. Readers move vertically through a story's ancestry and continuations, and horizontally between alternate versions that share the same parent.
 
 ## Run locally
 
@@ -10,17 +10,30 @@ No build step is required. Serve `dist/` with any static file server, for exampl
 python3 -m http.server 4173 --directory dist
 ```
 
-Then open `http://localhost:4173`.
+Then open `http://localhost:4173`. The production Firebase backend must already be deployed and must authorize `localhost` for authentication.
 
-## Prototype behavior
+For local Firebase emulators, start the emulator suite as described in [FIREBASE_SETUP.md](FIREBASE_SETUP.md), then open `http://localhost:4173/?emulators=1`.
 
-- Story, comment, moderation, and session changes persist in browser `localStorage`.
-- Google and Facebook buttons simulate separate member identities for the demo; they never grant administrator access.
-- A seeded administrator account exists in the fixture for moderation QA, but public demo sign-in cannot assume that role.
+Run the automated checks with:
+
+```bash
+npm --prefix functions run check
+npm --prefix functions test
+npm --prefix tests run test:rules
+npm --prefix tests run test:backend
+npm --prefix tests run test:browser:emulator
+```
+
+## Application behavior
+
+- Stories, comments, likes, reports, notifications, drafts, and moderation state are shared through trusted callable Firebase Functions and Cloud Firestore.
+- Authentication uses Firebase Google and Facebook providers. Guests can read, while signed-in members can write.
+- Administrator access requires both a server-controlled Firebase custom claim and the singleton administrator record.
 - Reported and deleted stories are rendered as tombstones while their descendants remain navigable.
+- Branchline itself keeps only branch-selection preferences in `localStorage`; Firebase Authentication manages its own browser session persistence.
 
 The domain model is intentionally API-friendly: stories use `parentId` relationships, sibling versions are derived by shared parent, and levels are derived from ancestry.
 
-## Production boundary
+## Backend and deployment
 
-This repository is still a browser-only demo. A public launch requires a trusted backend and real Google/Facebook OAuth (for example, Firebase Authentication plus server-enforced database rules). Until that is connected, `localStorage` data is device-local and can be modified by the visitor, so it must not be treated as secure shared production data.
+The browser never receives direct Firestore permission. It uses the allowlisted functions in `functions/`, which enforce authentication, ownership, moderation, and account-erasure behavior with the Admin SDK. See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for the immutable Firestore location decision, provider configuration, deployment, seeding, administrator setup, and production verification checklist.

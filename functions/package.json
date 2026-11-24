@@ -1,0 +1,21 @@
+{
+  "name": "branchline-functions",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Trusted Firebase backend for Branchline.",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check lib/model.js && node --check scripts/project-id.cjs && node --check scripts/seed.cjs && node --check scripts/set-admin.cjs && node --check scripts/emulator-smoke.cjs",
+    "test": "node --test test/*.test.cjs",
+    "seed": "node scripts/seed.cjs",
+    "set-admin": "node scripts/set-admin.cjs",
+    "smoke:emulator": "node scripts/emulator-smoke.cjs"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.1",
+    "firebase-functions": "7.4.0"
+  }
+}
