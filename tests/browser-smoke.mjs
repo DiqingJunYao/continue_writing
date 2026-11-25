@@ -1,87 +1,39 @@
 import assert from "node:assert/strict";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { createServer } from "node:http";
-import { extname, join, normalize } from "node:path";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "playwright-core";
+import { buildApp } from "../server/index.js";
+import { createPool, migrate, one, rows, writeTransaction } from "../server/db.js";
+import { seed } from "../server/seed.js";
 
-const workspace = fileURLToPath(new URL("..", import.meta.url));
-const staticRoot = join(workspace, "dist");
-const mimeTypes = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".svg": "image/svg+xml"
-};
-
-const server = createServer(async (request, response) => {
-  const requestPath = new URL(request.url || "/", "http://127.0.0.1").pathname;
-  const relativePath = requestPath === "/" ? "index.html" : requestPath.replace(/^\/+/, "");
-  const normalizedPath = normalize(relativePath);
-  if (normalizedPath.startsWith("..")) {
-    response.writeHead(403).end("Forbidden");
-    return;
-  }
-  const filePath = join(staticRoot, normalizedPath);
-  try {
-    const info = await stat(filePath);
-    if (!info.isFile()) throw new Error("Not a file");
-    response.writeHead(200, {
-      "content-type": mimeTypes[extname(filePath)] || "application/octet-stream",
-      "cache-control": "no-store"
-    });
-    createReadStream(filePath).pipe(response);
-  } catch {
-    response.writeHead(404).end("Not found");
-  }
-});
-
-await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const address = server.address();
-const origin = `http://127.0.0.1:${address.port}`;
-const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH || "/snap/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox", "--disable-dev-shm-usage"]
-});
-
-const context = await browser.newContext({ reducedMotion: "reduce" });
-const page = await context.newPage();
-const browserErrors = [];
-page.on("pageerror", (error) => browserErrors.push(`pageerror: ${error.message}`));
-page.on("console", (message) => {
-  if (message.type() === "error") browserErrors.push(`console: ${message.text()}`);
-});
-page.on("requestfailed", (request) => {
-  const failure = request.failure()?.errorText || "request failed";
-  browserErrors.push(`request: ${request.url()} (${failure})`);
-});
-
-async function completeEmulatedOAuth(provider, email, displayName) {
-  const providerLabel = provider === "facebook" ? "Facebook.com" : "Google.com";
-  const popupPromise = page.waitForEvent("popup");
-  await page.locator(`[data-oauth="${provider}"]`).click();
-  const popup = await popupPromise;
-  await popup.waitForLoadState("domcontentloaded");
-  await popup.getByRole("button", { name: /Add new account/i }).click();
-  const inputs = popup.locator("input");
-  await inputs.nth(0).fill(email);
-  await inputs.nth(1).fill(displayName);
-  await inputs.nth(2).fill(displayName.toLowerCase().replace(/[^a-z0-9]+/g, ""));
-  await popup.getByRole("button", { name: `Sign in with ${providerLabel}`, exact: true }).click();
-  await popup.waitForEvent("close");
-  await page.locator('[data-action="user-menu"]').waitFor({ state: "visible", timeout: 20_000 });
+const databaseUrl = process.env.TEST_DATABASE_URL;
+if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith("_test")) {
+  throw new Error("Set TEST_DATABASE_URL to a dedicated MySQL database ending in _test.");
 }
+const pool = createPool({ DATABASE_URL: databaseUrl });
+const port = Number(process.env.TEST_PORT || 4179);
+const origin = `http://127.0.0.1:${port}`;
+const subject = randomUUID();
+const providerForTest = (name) => ({
+  start({ redirectUri, state }) {
+    const callback = new URL(redirectUri);
+    callback.search = new URLSearchParams({ state, code: "browser-test" });
+    return callback;
+  },
+  identity({ callbackUrl }) {
+    assert.equal(callbackUrl.searchParams.get("code"), "browser-test");
+    return { subject, name: `Browser ${name} Writer` };
+  },
+});
+let server;
+let browser;
+let page;
+let schemaReady = false;
+const browserErrors = [];
 
-async function completeEmulatedReauthentication(trigger, email) {
-  const popupPromise = page.waitForEvent("popup");
-  await trigger();
-  const popup = await popupPromise;
-  await popup.waitForLoadState("domcontentloaded");
-  await popup.locator(".js-reuse-account").filter({ hasText: email }).click();
-  await popup.waitForEvent("close");
+async function completeOAuth(provider) {
+  await page.locator(`[data-oauth="${provider}"]`).click();
+  await page.locator('[data-action="user-menu"]').waitFor({ state: "visible", timeout: 20_000 });
 }
 
 async function signOutFromUi() {
@@ -103,7 +55,33 @@ async function assertNoSeriousAccessibilityViolations(label) {
 }
 
 try {
-  await page.goto(`${origin}/?emulators=1#story`, { waitUntil: "networkidle" });
+  await migrate(pool);
+  schemaReady = true;
+  await seed(pool);
+  server = await buildApp({
+    pool,
+    env: { PUBLIC_ORIGIN: origin },
+    providers: { google: providerForTest("Google"), facebook: providerForTest("Facebook") },
+  });
+  await server.listen({ port, host: "127.0.0.1" });
+  browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH || "/snap/bin/chromium",
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  });
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  page = await context.newPage();
+  page.on("pageerror", (error) => browserErrors.push(`pageerror: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(`console: ${message.text()}`);
+  });
+  page.on("requestfailed", (request) => {
+    const failure = request.failure()?.errorText || "request failed";
+    // A successful popup closes while its document is still settling.
+    if (failure === "net::ERR_ABORTED" && request.isNavigationRequest()) return;
+    browserErrors.push(`request: ${request.url()} (${failure})`);
+  });
+  await page.goto(`${origin}/#story/seed_lightkeeper`, { waitUntil: "networkidle" });
   await page.locator("#story-card").waitFor({ state: "visible", timeout: 20_000 });
 
   const title = await page.locator("#story-title").textContent();
@@ -135,7 +113,7 @@ try {
   await page.locator("#app-dialog[open]").waitFor({ state: "visible" });
   assert.match(await page.locator("#app-dialog").textContent(), /Continue with Google/i);
   assert.match(await page.locator("#app-dialog").textContent(), /Continue with Facebook/i);
-  await completeEmulatedOAuth("google", "browser-google@example.test", "Browser Google Writer");
+  await completeOAuth("google");
 
   await page.locator("#story-editor").waitFor({ state: "visible", timeout: 20_000 });
   assert.match(await page.locator(".reference-panel").textContent(), new RegExp(title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -148,25 +126,25 @@ try {
     "the native form must accept a short chapter that satisfies the eight-word rule"
   );
   await page.locator("#story-body-input").fill("The browser writer opened another door and followed the quiet light into a future no one had named before.");
-  const unsavedBeforeTokenRefresh = await page.locator("#story-editor").evaluate((form) => ({
+  const unsavedBeforeSessionRefresh = await page.locator("#story-editor").evaluate((form) => ({
     title: form.elements.title.value,
     deck: form.elements.deck.value,
     body: form.elements.body.value
   }));
   await page.evaluate(async () => {
-    const client = await import("./firebase-client.js");
-    await client.currentFirebaseUser().getIdToken(true);
+    const client = await import("./backend-client.js");
+    await client.refreshSession();
   });
   await page.waitForTimeout(300);
-  assert.equal(await page.locator("#story-editor").count(), 1, "same-user token refresh must preserve the editor");
+  assert.equal(await page.locator("#story-editor").count(), 1, "same-user session refresh must preserve the editor");
   assert.deepEqual(
     await page.locator("#story-editor").evaluate((form) => ({
       title: form.elements.title.value,
       deck: form.elements.deck.value,
       body: form.elements.body.value
     })),
-    unsavedBeforeTokenRefresh,
-    "same-user token refresh must preserve unsaved writing"
+    unsavedBeforeSessionRefresh,
+    "same-user session refresh must preserve unsaved writing"
   );
   const editorState = await page.locator("#story-editor").evaluate((form) => ({
     valid: form.checkValidity(),
@@ -211,29 +189,27 @@ try {
   );
   await page.locator('[data-action="close-comments"]').click();
 
-  await page.goto(`${origin}/?emulators=1#profile`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}/#profile`, { waitUntil: "networkidle" });
   await page.locator(".story-list-card").filter({ hasText: "Browser Continuation" }).waitFor({ state: "visible" });
   await assertNoSeriousAccessibilityViolations("member profile");
   await signOutFromUi();
 
   await page.locator('header [data-action="sign-in"]').click();
   await page.locator("#app-dialog[open]").waitFor({ state: "visible" });
-  await completeEmulatedOAuth("facebook", "browser-facebook@example.test", "Browser Facebook Writer");
+  await completeOAuth("facebook");
   assert.match(await page.locator("header").textContent(), /My stories/i);
   await page.locator('header a[href="#profile"]').click();
   await page.locator('main [data-action="account-data"]').click();
-  await completeEmulatedReauthentication(
-    () => page.locator('#app-dialog [data-action="delete-account"]').click(),
-    "browser-facebook@example.test"
-  );
+  await page.locator('#app-dialog [data-action="delete-account"]').click();
   await page.locator('header [data-action="sign-in"]').waitFor({ state: "visible", timeout: 20_000 });
+  assert.equal(await one(pool, "SELECT userId FROM oauthAccounts WHERE provider = 'facebook' AND subject = ?", [subject]), null);
 
-  await page.goto(`${origin}/?emulators=1#write/start`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}/#write/start`, { waitUntil: "networkidle" });
   await page.locator(".auth-wall").waitFor({ state: "visible" });
   assert.match(await page.locator("main").textContent(), /Sign in with Google or Facebook/i);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${origin}/?emulators=1#story`, { waitUntil: "networkidle" });
+  await page.goto(`${origin}/#story`, { waitUntil: "networkidle" });
   await page.locator("#story-card").waitFor({ state: "visible" });
   const mobileLayout = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -243,8 +219,21 @@ try {
   await assertNoSeriousAccessibilityViolations("mobile guest reader");
 
   assert.deepEqual(browserErrors, [], browserErrors.join("\n"));
-  console.log("Branchline browser emulator smoke passed");
+  console.log("Branchline Fastify/MySQL browser smoke passed");
 } finally {
-  await browser.close();
-  await new Promise((resolve) => server.close(resolve));
+  try {
+    await browser?.close();
+    await server?.close();
+    if (schemaReady) {
+      await writeTransaction(pool, async (db) => {
+        const accounts = await rows(db, "SELECT userId FROM oauthAccounts WHERE subject = ? AND provider IN ('google', 'facebook')", [subject]);
+        for (const { userId } of accounts) {
+          await rows(db, "DELETE FROM stories WHERE authorId = ?", [userId]);
+          await rows(db, "DELETE FROM users WHERE id = ?", [userId]);
+        }
+      });
+    }
+  } finally {
+    await pool.end();
+  }
 }

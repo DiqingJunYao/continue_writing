@@ -1,6 +1,9 @@
-"use strict";
-
-const { HttpsError } = require("firebase-functions/v2/https");
+export class AppError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
 
 const GENRES = new Set([
   "Speculative",
@@ -17,44 +20,25 @@ const GENRES = new Set([
 const TONES = new Set(["rose", "green", "blue", "purple"]);
 const MAX_TREE_DEPTH = 100;
 
-function requireAuth(request) {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Sign in to continue.");
-  }
-  return request.auth.uid;
-}
-
-function requireAdmin(request) {
-  const uid = requireAuth(request);
-  if (request.auth.token.admin !== true) {
-    throw new HttpsError(
-      "permission-denied",
-      "Administrator access is required.",
-    );
-  }
-  return uid;
-}
-
-function requireRecentAuth(request, maximumAgeSeconds = 300) {
-  const uid = requireAuth(request);
-  const authTime = Number(request.auth?.token?.auth_time);
-  const now = Math.floor(Date.now() / 1000);
+function requireRecentAuth(user, now = Date.now()) {
+  const authTime = user.authAt instanceof Date
+    ? user.authAt.getTime()
+    : Date.parse(String(user.authAt ?? "").replace(" ", "T") + "Z");
   if (
     !Number.isFinite(authTime) ||
-    authTime > now + 60 ||
-    now - authTime > maximumAgeSeconds
+    authTime > now + 60_000 ||
+    now - authTime > 300_000
   ) {
-    throw new HttpsError(
+    throw new AppError(
       "unauthenticated",
       "Confirm your identity with Google or Facebook again before deleting your account.",
     );
   }
-  return uid;
 }
 
 function requireObject(value, label = "payload") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new HttpsError("invalid-argument", `${label} must be an object.`);
+    throw new AppError("invalid-argument", `${label} must be an object.`);
   }
   return value;
 }
@@ -62,10 +46,10 @@ function requireObject(value, label = "payload") {
 function cleanText(value, { label, max, required = false, min = 0 } = {}) {
   const text = typeof value === "string" ? value.trim() : "";
   if (required && !text) {
-    throw new HttpsError("invalid-argument", `${label || "Text"} is required.`);
+    throw new AppError("invalid-argument", `${label || "Text"} is required.`);
   }
   if (text.length < min || text.length > max) {
-    throw new HttpsError(
+    throw new AppError(
       "invalid-argument",
       `${label || "Text"} must be between ${min} and ${max} characters.`,
     );
@@ -77,7 +61,7 @@ function cleanId(value, label = "ID", { optional = false } = {}) {
   if ((value === null || value === undefined || value === "") && optional)
     return null;
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(value)) {
-    throw new HttpsError("invalid-argument", `${label} is invalid.`);
+    throw new AppError("invalid-argument", `${label} is invalid.`);
   }
   return value;
 }
@@ -97,8 +81,8 @@ function cleanStoryInput(raw, { draft = false } = {}) {
     required: !draft,
     min: draft ? 0 : 1,
   });
-  if (!draft && body.split(/\s+/).filter(Boolean).length < 8) {
-    throw new HttpsError(
+  if (!draft && wordCount(body) < 8) {
+    throw new AppError(
       "invalid-argument",
       "Published chapters need at least eight words.",
     );
@@ -109,6 +93,20 @@ function cleanStoryInput(raw, { draft = false } = {}) {
       : "Speculative";
   return { title, deck, body, genre };
 }
+
+function wordCount(value = "") {
+    const segmenter = new Intl.Segmenter(undefined, {
+      granularity: "word",
+    });
+    const segments = segmenter.segment(value);
+    let count = 0;
+    for (const segment of segments) {
+      if (segment.isWordLike) {
+        count++;
+      }
+    }
+    return count;
+  }
 
 function cleanCommentText(value) {
   return cleanText(value, {
@@ -141,7 +139,7 @@ function cleanProfileInput(raw, token = {}) {
   });
   if (!handle.startsWith("@")) handle = `@${handle}`;
   if (!/^@[A-Za-z0-9_-]{1,31}$/.test(handle)) {
-    throw new HttpsError(
+    throw new AppError(
       "invalid-argument",
       "Handle may use letters, numbers, underscores, and hyphens.",
     );
@@ -181,28 +179,6 @@ function initialsFor(name) {
   );
 }
 
-function assertActive(snapshot, label = "Chapter") {
-  if (!snapshot.exists)
-    throw new HttpsError("not-found", `${label} was not found.`);
-  if (snapshot.data().status !== "active") {
-    throw new HttpsError(
-      "failed-precondition",
-      `${label} is not currently available.`,
-    );
-  }
-}
-
-function assertOwner(snapshot, uid, label = "Item") {
-  if (!snapshot.exists)
-    throw new HttpsError("not-found", `${label} was not found.`);
-  if (snapshot.data().authorId !== uid) {
-    throw new HttpsError(
-      "permission-denied",
-      `You do not own this ${label.toLowerCase()}.`,
-    );
-  }
-}
-
 function publicTombstone(status) {
   return {
     title: status === "reported" ? "Reported chapter" : "Deleted chapter",
@@ -212,44 +188,14 @@ function publicTombstone(status) {
   };
 }
 
-function toMillis(value) {
-  if (value && typeof value.toMillis === "function") return value.toMillis();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") return value;
-  return 0;
-}
-
-function toClientValue(value) {
-  if (value && typeof value.toDate === "function")
-    return value.toDate().toISOString();
-  if (Array.isArray(value)) return value.map(toClientValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, toClientValue(item)]),
-    );
-  }
-  return value;
-}
-
-function snapshotToClient(snapshot) {
-  return { id: snapshot.id, ...toClientValue(snapshot.data()) };
-}
-
-module.exports = {
+export {
   GENRES,
   MAX_TREE_DEPTH,
-  assertActive,
-  assertOwner,
   cleanCommentText,
   cleanId,
   cleanProfileInput,
   cleanStoryInput,
   publicTombstone,
-  requireAdmin,
-  requireAuth,
   requireRecentAuth,
   requireObject,
-  snapshotToClient,
-  toClientValue,
-  toMillis,
 };

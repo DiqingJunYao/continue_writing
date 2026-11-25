@@ -1,14 +1,13 @@
 import {
   BranchlineBackendError,
   callBackend,
-  currentFirebaseUser,
-  initializeFirebaseBackend,
-  isFirebaseConfigured,
-  reauthenticateFirebaseUser,
-  signInWithFirebase,
-  signOutFirebase,
-  subscribeToAuth,
-} from "./firebase-client.js";
+  forgetSession,
+  isProviderEnabled,
+  reauthenticateSession,
+  refreshSession,
+  signInWithProvider,
+  signOutSession,
+} from "./backend-client.js";
 
 (() => {
   "use strict";
@@ -20,6 +19,7 @@ import {
     stories: [],
     comments: [],
     notifications: [],
+    unreadCount: 0,
     auditLog: [],
     truncated: false,
   });
@@ -36,9 +36,14 @@ import {
       notifications: Array.isArray(payload.notifications)
         ? payload.notifications
         : [],
+      unreadCount: 0,
       auditLog: Array.isArray(payload.auditLog) ? payload.auditLog : [],
       truncated: payload.truncated === true,
     };
+    normalized.unreadCount =
+      Number.isSafeInteger(payload.unreadCount) && payload.unreadCount >= 0
+        ? payload.unreadCount
+        : normalized.notifications.filter((item) => !item.read).length;
     normalized.stories.forEach((story) => {
       story.likedBy = Array.isArray(story.likedBy) ? story.likedBy : [];
       story.reportedBy = Array.isArray(story.reportedBy)
@@ -86,9 +91,7 @@ import {
   let backendError = null;
   let refreshRevision = 0;
   let mutationInFlight = false;
-  let authSubscriptionStarted = false;
-  let authSnapshotSeen = false;
-  let lastAuthUid = null;
+  let suspendedEditor = null;
   let inboxReadUpdateInFlight = false;
 
   const main = document.getElementById("main-content");
@@ -285,7 +288,17 @@ import {
   }
 
   function wordCount(value = "") {
-    return value.trim() ? value.trim().split(/\s+/).length : 0;
+    const segmenter = new Intl.Segmenter(undefined, {
+      granularity: "word",
+    });
+    const segments = segmenter.segment(value);
+    let count = 0;
+    for (const segment of segments) {
+      if (segment.isWordLike) {
+        count++;
+      }
+    }
+    return count;
   }
 
   function formatDate(value) {
@@ -339,9 +352,7 @@ import {
 
   function renderHeader(route) {
     const user = currentUser();
-    const unreadCount = user
-      ? notificationsForUser(user.id).filter((item) => !item.read).length
-      : 0;
+    const unreadCount = user ? data.unreadCount : 0;
     const navIsActive = (name) => (route.name === name ? " active" : "");
     header.innerHTML = `
       <div class="header-inner">
@@ -429,11 +440,24 @@ import {
     `;
   }
 
+  function setSession(userId) {
+    if (session.userId === userId) return;
+    session = { userId };
+    data.comments = [];
+    commentCursorByStory.clear();
+    commentLoadInFlight.clear();
+    commentDraftByStory.clear();
+    replyDraftByComment.clear();
+    expandedReplyThreads.clear();
+    replyTargetId = null;
+  }
+
   async function refreshSharedData({ render = true } = {}) {
     const revision = ++refreshRevision;
     try {
       const payload = await callBackend("bootstrap");
       if (revision !== refreshRevision) return false;
+      setSession(payload.currentUser?.id || null);
       const cachedComments = data.comments;
       const cachedUsers = data.users;
       const nextData = normalizeBootstrap(payload);
@@ -457,10 +481,6 @@ import {
         }
       });
       data = nextData;
-      const firebaseUser = currentFirebaseUser();
-      session = {
-        userId: firebaseUser?.uid || payload.currentUser?.id || null,
-      };
       if (
         payload.currentUser &&
         !data.users.some((user) => user.id === payload.currentUser.id)
@@ -496,14 +516,60 @@ import {
     });
   }
 
+  async function recoverExpiredSession(error, previousUserId) {
+    if (error?.code !== "unauthenticated" || !previousUserId) return;
+    const editor = document.getElementById("story-editor");
+    const values = editor ? Object.fromEntries(new FormData(editor)) : null;
+    const route = location.hash;
+    const refreshed = await refreshSharedData({ render: false });
+    if (!refreshed || session.userId === previousUserId) return;
+
+    closeComments();
+    closeAppDialog();
+    if (session.userId) {
+      await refreshSession().catch(() => {});
+      renderApp();
+      return;
+    }
+
+    forgetSession();
+    if (values && route === location.hash) {
+      suspendedEditor = { route, userId: previousUserId, values };
+    }
+    renderApp();
+    openAuthModal("Your session ended. Sign in again to continue.");
+  }
+
+  function restoreSuspendedEditor() {
+    const saved = suspendedEditor;
+    suspendedEditor = null;
+    const editor = document.getElementById("story-editor");
+    if (
+      !editor ||
+      !saved ||
+      saved.userId !== session.userId ||
+      saved.route !== location.hash
+    )
+      return;
+    for (const [name, value] of Object.entries(saved.values)) {
+      const field = editor.elements.namedItem(name);
+      if (!field) continue;
+      field.value = value;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
   async function runMutation(name, payload = {}, { refresh = true } = {}) {
     if (mutationInFlight) {
       showToast("Please wait for the current change to finish.", "info");
       return null;
     }
+    const previousUserId = session.userId;
     setMutationBusy(true);
     try {
-      const result = await callBackend(name, payload);
+      const result = await callBackend(name, payload, {
+        expectedUser: previousUserId,
+      });
       if (refresh) {
         const refreshed = await refreshSharedData({ render: false });
         if (!refreshed) {
@@ -514,6 +580,7 @@ import {
       }
       return result;
     } catch (error) {
+      await recoverExpiredSession(error, previousUserId);
       showToast(backendMessage(error), "info");
       return null;
     } finally {
@@ -522,50 +589,12 @@ import {
   }
 
   async function bootBackend() {
-    if (!isFirebaseConfigured()) {
-      backendLoading = false;
-      backendError = new BranchlineBackendError(
-        "backend/not-configured",
-        "Firebase is not configured for this Branchline build.",
-      );
-      renderBackendState();
-      return;
-    }
     backendLoading = true;
     backendError = null;
     renderBackendState();
-    if (!authSubscriptionStarted) {
-      authSubscriptionStarted = true;
-      subscribeToAuth((snapshot) => {
-        if (!snapshot.ready) return;
-        if (snapshot.error && !snapshot.user) {
-          backendError = snapshot.error;
-          backendLoading = false;
-          renderBackendState();
-          return;
-        }
-        const nextUid = snapshot.user?.uid || null;
-        const identityChanged = !authSnapshotSeen || nextUid !== lastAuthUid;
-        authSnapshotSeen = true;
-        lastAuthUid = nextUid;
-        session = { userId: nextUid };
-        if (identityChanged) {
-          data.comments = [];
-          commentCursorByStory.clear();
-          commentLoadInFlight.clear();
-          commentDraftByStory.clear();
-          replyDraftByComment.clear();
-        }
-
-        // Firebase refreshes ID tokens periodically. Keep shared data current,
-        // but do not rebuild an open editor and discard unsaved writing when
-        // the signed-in identity has not changed.
-        const preserveEditor = getRoute().name === "write" && !identityChanged;
-        refreshSharedData({ render: !preserveEditor });
-      });
-    }
     try {
-      await initializeFirebaseBackend();
+      await refreshSession();
+      await refreshSharedData();
     } catch (error) {
       backendLoading = false;
       backendError = error;
@@ -612,6 +641,12 @@ import {
     afterAuth = null,
   ) {
     pendingAuthAction = afterAuth;
+    const googleEnabled = isProviderEnabled("google");
+    const facebookEnabled = isProviderEnabled("facebook");
+    const availabilityMessage =
+      googleEnabled || facebookEnabled
+        ? "Branchline creates a writing profile when you sign in."
+        : "Sign-in is currently unavailable. You can keep reading as a guest.";
     openDialog({
       title: "Sign in to Branchline",
       subtitle: reason,
@@ -621,14 +656,14 @@ import {
           <h2>Your next chapter starts here.</h2>
           <p>Readers are always welcome. Sign in with Google or Facebook to write, react, comment, and report.</p>
           <div class="oauth-stack">
-            <button class="oauth-button" type="button" data-oauth="google">
+            <button class="oauth-button" type="button" data-oauth="google" ${googleEnabled ? "" : "disabled"}>
               <span class="oauth-logo google">G</span><span>Continue with Google</span><span class="oauth-arrow">›</span>
             </button>
-            <button class="oauth-button" type="button" data-oauth="facebook">
+            <button class="oauth-button" type="button" data-oauth="facebook" ${facebookEnabled ? "" : "disabled"}>
               <span class="oauth-logo facebook">f</span><span>Continue with Facebook</span><span class="oauth-arrow">›</span>
             </button>
           </div>
-          <p class="auth-terms">Firebase securely handles sign-in. Branchline stores only the profile needed for your writing account.</p>
+          <p class="auth-terms">${availabilityMessage}</p>
         </div>
       `,
     });
@@ -645,17 +680,28 @@ import {
   async function signIn(provider) {
     if (mutationInFlight) return;
     mutationInFlight = true;
+    const route = location.hash;
+    const pending = pendingAuthAction;
     try {
-      const firebaseUser = await signInWithFirebase(provider);
-      await callBackend("ensureProfile", {
-        name: firebaseUser.displayName || "Branchline member",
-        avatarUrl: firebaseUser.photoURL || "",
-      });
-      await refreshSharedData({ render: false });
+      const signedIn = await signInWithProvider(provider);
+      if (!(await refreshSharedData({ render: false }))) return;
+      if (session.userId !== signedIn.uid) {
+        renderApp();
+        throw new BranchlineBackendError(
+          "unauthenticated",
+          "Your Branchline session could not be confirmed. Sign in again.",
+        );
+      }
+      const action =
+        appDialog.open &&
+        route === location.hash &&
+        pending === pendingAuthAction
+          ? pending
+          : null;
       closeAppDialog();
-      const action = pendingAuthAction;
       pendingAuthAction = null;
       renderApp();
+      restoreSuspendedEditor();
       showToast(
         `Signed in with ${provider === "facebook" ? "Facebook" : "Google"}.`,
       );
@@ -995,7 +1041,7 @@ import {
           </div>
         </section>
 
-        ${data.truncated ? `<div class="capacity-notice" role="status">${icon("alert")} <span>Branchline has reached its current 500-chapter reader capacity. Some older paths are temporarily unavailable; an administrator must complete the pagination upgrade before public launch.</span></div>` : ""}
+        ${data.truncated ? `<div class="capacity-notice" role="status">${icon("alert")} <span>Some older paths are outside the current reader view.</span></div>` : ""}
 
         <section class="reader-stage" aria-label="Story reader">
           <div class="stage-grid">
@@ -2152,9 +2198,14 @@ import {
     setMutationBusy(true);
     let result;
     try {
-      await reauthenticateFirebaseUser();
-      result = await callBackend("deleteAccount");
+      await reauthenticateSession(user.id);
+      result = await callBackend(
+        "deleteAccount",
+        {},
+        { expectedUser: user.id },
+      );
     } catch (error) {
+      await recoverExpiredSession(error, user.id);
       showToast(
         backendMessage(
           error,
@@ -2165,13 +2216,9 @@ import {
       setMutationBusy(false);
       return;
     }
-    try {
-      await signOutFirebase();
-    } catch {
-      // The backend has already removed the Firebase Auth user.
-    }
+    forgetSession();
     setMutationBusy(false);
-    session = { userId: null };
+    setSession(null);
     data = emptyData();
     backendReady = false;
     backendLoading = true;
@@ -2242,7 +2289,7 @@ import {
     const userNotifications = notificationsForUser(user.id);
     const counts = {
       all: userNotifications.length,
-      unread: userNotifications.filter((item) => !item.read).length,
+      unread: data.unreadCount,
       continuation: userNotifications.filter(
         (item) => item.type === "continuation",
       ).length,
@@ -2554,10 +2601,12 @@ import {
 
   async function signOut() {
     if (mutationInFlight) return;
+    const previousUserId = session.userId;
     setMutationBusy(true);
     try {
-      await signOutFirebase();
-      session = { userId: null };
+      await signOutSession(previousUserId);
+      setSession(null);
+      suspendedEditor = null;
       closeAppDialog();
       const refreshed = await refreshSharedData({ render: false });
       if (!refreshed) {
@@ -2569,6 +2618,7 @@ import {
       renderApp();
       showToast("Signed out. You can keep reading as a guest.");
     } catch (error) {
+      await recoverExpiredSession(error, previousUserId);
       showToast(
         backendMessage(error, "Branchline could not sign you out. Try again."),
         "info",
