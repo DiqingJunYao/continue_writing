@@ -23,3 +23,6 @@ stop-db:
 node_modules/.branchline-installed: package.json package-lock.json
 	npm ci
 	touch $@
+
+down: 
+	docker compose down
